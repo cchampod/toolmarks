@@ -1,4 +1,4 @@
-# Repository associated with Jean_Alexandre Patteet PhD
+# Repository associated with Jean-Alexandre Patteet PhD
 
 It contains:
 1. The raw data sources used in the research

@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(gridExtra)
 ```
 
 # Import
@@ -82,8 +83,21 @@ Selection1 <- ResToolMarks %>%
   filter(K == 1 & Z == 1 &  A == 2)
 ```
 
-To plot a chosen profile
+To plot a chosen profile.
 
+```{r plot}
+a <- as.data.frame(cbind(x=unlist(Selection1[1,]$x),
+           y= unlist(Selection1[1,]$y)))
+b <- as.data.frame(cbind(x=unlist(Selection1[2,]$x),
+           y= unlist(Selection1[2,]$y)))
+
+p1 <- ggplot(a, aes(x , y)) + 
+         geom_line(colour="blue")
+p2 <- ggplot(b, aes(x , y)) + 
+         geom_line(colour="blue")
+
+grid.arrange(p1,p2, ncol=1)
+```
 
 
 

@@ -1,0 +1,90 @@
+---
+title: "Import Data Toolmarks"
+author: "Christophe Champod"
+date: "3/31/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# Import
+
+The function ImportToolmarksData() below will read all .txt files in a folder and prepare a dataframe with the relevant information
+
+```{r Import function}
+ImportToolmarksData <- function(PathToDataFolder){
+  
+  #We get the list of files in the folder set by PathToDataFolder
+  files <- list.files(path = PathToDataFolder,
+                      pattern = list.files(pattern = "\\.txt$"))
+  
+  #Define dataframe of results
+  Res.df <- data.frame(File=1:length(files),
+                       K=1:length(files),
+                       Z=1:length(files),
+                       A=1:length(files),
+                       N=1:length(files),
+                       L=1:length(files))
+  
+  # We go through the entire list of results files
+  # We read the results from the file and add it to Res.df as a list
+  
+  for(i in 1:length(files)){
+    ReadResultsFile <- read_delim(paste0(PathToDataFolder,files[i]), 
+                          "\t", 
+                          escape_double = FALSE, 
+                          col_names = c("x","y"), 
+                          trim_ws = TRUE)
+    #Assign the x and y  
+    Res.df$x[i] <- list(ReadResultsFile$x)
+    Res.df$y[i] <- list(ReadResultsFile$y)
+    #Assign the other variables
+    Res.df$File[i] <- files[i]
+    Res.df$K[i] <- substr(files[i], 2, 2)
+    Res.df$Z[i] <- substr(files[i], 4, 4)
+    Res.df$A[i] <- substr(files[i], 6, 6)
+    Res.df$N[i] <- substr(files[i], 8, 9)
+    Res.df$L[i] <- substr(files[i], 11, 11)
+    
+    #Print to check when running
+    print(i)
+    print(files[i])
+  }
+  
+  #Adjust variables to factors
+    Res.df$K <- as.factor(Res.df$K)
+    Res.df$Z <- as.factor(Res.df$Z)
+    Res.df$A <- as.factor(Res.df$A)
+    Res.df$N <- as.factor(Res.df$N)
+    Res.df$L <- as.factor(Res.df$L)
+    
+  #Output
+  return(Res.df)
+}
+```
+
+We apply it to the folder containing the .txt files
+
+```{r Import Data}
+ResToolMarks <- ImportToolmarksData("AllProfiles/")
+```
+
+# Select and plot cases of interest
+
+Then using dplyr() grammar, it is very easy to do selection of marks of interest for futher processing.
+
+```{r Selection}
+
+Selection1 <- ResToolMarks %>%
+  filter(K == 1 & Z == 1 &  A == 2)
+```
+
+To plot a chosen profile
+
+
+
+
+

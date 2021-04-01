@@ -25,11 +25,11 @@ ImportToolmarksData <- function(PathToDataFolder){
   
   #Define dataframe of results
   Res.df <- data.frame(File=1:length(files),
-                       K=1:length(files),
-                       Z=1:length(files),
-                       A=1:length(files),
-                       N=1:length(files),
-                       L=1:length(files))
+                       Tool=1:length(files),
+                       Zone=1:length(files),
+                       Side=1:length(files),
+                       Cut=1:length(files),
+                       ROI=1:length(files))
   
   # We go through the entire list of results files
   # We read the results from the file and add it to Res.df as a list
@@ -45,11 +45,11 @@ ImportToolmarksData <- function(PathToDataFolder){
     Res.df$y[i] <- list(ReadResultsFile$y)
     #Assign the other variables
     Res.df$File[i] <- files[i]
-    Res.df$K[i] <- substr(files[i], 2, 2)
-    Res.df$Z[i] <- substr(files[i], 4, 4)
-    Res.df$A[i] <- substr(files[i], 6, 6)
-    Res.df$N[i] <- substr(files[i], 8, 9)
-    Res.df$L[i] <- substr(files[i], 11, 11)
+    Res.df$Tool[i] <- substr(files[i], 1, 2)
+    Res.df$Zone[i] <- substr(files[i], 4, 4)
+    Res.df$Side[i] <- substr(files[i], 5, 6)
+    Res.df$Cut[i] <- substr(files[i], 8, 9)
+    Res.df$ROI[i] <- substr(files[i], 11, 11)
     
     #Print to check when running
     print(i)
@@ -57,11 +57,11 @@ ImportToolmarksData <- function(PathToDataFolder){
   }
   
   #Adjust variables to factors
-    Res.df$K <- as.factor(Res.df$K)
-    Res.df$Z <- as.factor(Res.df$Z)
-    Res.df$A <- as.factor(Res.df$A)
-    Res.df$N <- as.factor(Res.df$N)
-    Res.df$L <- as.factor(Res.df$L)
+    Res.df$Tool <- as.factor(Res.df$Tool)
+    Res.df$Zone <- as.factor(Res.df$Zone)
+    Res.df$Side <- as.factor(Res.df$Side)
+    Res.df$Cut <- as.factor(Res.df$Cut)
+    Res.df$ROI <- as.factor(Res.df$ROI)
     
   #Output
   return(Res.df)
@@ -81,7 +81,9 @@ Then using dplyr() grammar, it is very easy to do selection of marks of interest
 ```{r Selection}
 
 Selection1 <- ResToolMarks %>%
-  filter(K == 1 & Z == 1 & A == 2)
+  filter(Tool == "K1" & Zone == 1 & Side == "A1")
+
+View(Selection1)
 ```
 
 To plot a chosen profile.

@@ -8,12 +8,12 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(gridExtra)
+library(gridExtra) #for grid.arrange()
 ```
 
 # Import
 
-The function ImportToolmarksData() below will read all .txt files in a folder and prepare a dataframe with the relevant information
+The function ImportToolmarksData() below will read all .txt files in a folder and prepare a dataframe with the relevant information.
 
 ```{r Import function}
 ImportToolmarksData <- function(PathToDataFolder){
@@ -80,25 +80,37 @@ Then using dplyr() grammar, it is very easy to do selection of marks of interest
 ```{r Selection}
 
 Selection1 <- ResToolMarks %>%
-  filter(K == 1 & Z == 1 &  A == 2)
+  filter(K == 1 & Z == 1 & A == 2)
 ```
 
 To plot a chosen profile.
 
-```{r plot}
-a <- as.data.frame(cbind(x=unlist(Selection1[1,]$x),
-           y= unlist(Selection1[1,]$y)))
-b <- as.data.frame(cbind(x=unlist(Selection1[2,]$x),
-           y= unlist(Selection1[2,]$y)))
+```{r functions_to_plot}
+Extract_One_profile <- function(selection, number){
+  a <- as.data.frame(cbind(x=unlist(selection[number,]$x),
+           y= unlist(selection[number,]$y)))
+  comment(a) <- selection[number,]$File
+  return(a)
+}
 
-p1 <- ggplot(a, aes(x , y)) + 
-         geom_line(colour="blue")
-p2 <- ggplot(b, aes(x , y)) + 
-         geom_line(colour="blue")
-
-grid.arrange(p1,p2, ncol=1)
+Plot_profile <- function(Profile){
+  p1 <- ggplot(Profile, aes(x , y)) + 
+         geom_line(colour="blue") +
+    ggtitle(comment(Profile))
+  p1
+}
 ```
 
+```{r plot}
+a <- Extract_One_profile(Selection1,1)
+b <- Extract_One_profile(Selection1,28)
+
+p1 <- Plot_profile(a)
+p2 <- Plot_profile(b)
+
+#Goin them
+grid.arrange(p1,p2, ncol=1)
+```
 
 
 

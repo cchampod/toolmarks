@@ -1,7 +1,7 @@
 ---
 title: "Import Data Toolmarks"
 author: "Christophe Champod"
-date: "3/31/2021"
+date: "04/01/2021"
 output: html_document
 ---
 
@@ -9,6 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(gridExtra) #for grid.arrange()
+library(toolmaRk)
 ```
 
 # Import
@@ -103,13 +104,19 @@ Plot_profile <- function(Profile){
 
 ```{r plot}
 a <- Extract_One_profile(Selection1,1)
-b <- Extract_One_profile(Selection1,28)
+b <- Extract_One_profile(Selection1,5)
 
 p1 <- Plot_profile(a)
 p2 <- Plot_profile(b)
 
 #Goin them
 grid.arrange(p1,p2, ncol=1)
+```
+
+# Matching
+
+```{r matching}
+
 ```
 
 

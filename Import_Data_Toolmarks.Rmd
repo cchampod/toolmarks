@@ -7,68 +7,12 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(tidyverse)
-library(gridExtra) #for grid.arrange()
-library(toolmaRk)
+
+#Load required packages and functions
+source("Packages_and_Functions.R")
 ```
 
 # Import
-
-The function ImportToolmarksData() below will read all .txt files in a folder and prepare a dataframe with the relevant information.
-
-```{r Import function}
-ImportToolmarksData <- function(PathToDataFolder){
-  
-  #We get the list of files in the folder set by PathToDataFolder
-  files <- list.files(path = PathToDataFolder,
-                      pattern = list.files(pattern = "\\.txt$"))
-  
-  #Define dataframe of results
-  Res.df <- data.frame(File=1:length(files),
-                       Tool=1:length(files),
-                       Zone=1:length(files),
-                       Side=1:length(files),
-                       Cut=1:length(files),
-                       ROI=1:length(files))
-  
-  # We go through the entire list of results files
-  # We read the results from the file and add it to Res.df as a list
-  
-  for(i in 1:length(files)){
-    ReadResultsFile <- read_delim(paste0(PathToDataFolder,files[i]), 
-                          "\t", 
-                          escape_double = FALSE, 
-                          col_names = c("x","y"), 
-                          trim_ws = TRUE)
-    #Assign the x and y  
-    Res.df$x[i] <- list(ReadResultsFile$x)
-    Res.df$y[i] <- list(ReadResultsFile$y)
-    #Assign the other variables
-    Res.df$File[i] <- files[i]
-    Res.df$Tool[i] <- substr(files[i], 1, 2)
-    Res.df$Zone[i] <- substr(files[i], 4, 4)
-    Res.df$Side[i] <- substr(files[i], 5, 6)
-    Res.df$Cut[i] <- substr(files[i], 8, 9)
-    Res.df$ROI[i] <- substr(files[i], 11, 11)
-    
-    #Print to check when running
-    print(i)
-    print(files[i])
-  }
-  
-  #Adjust variables to factors
-    Res.df$Tool <- as.factor(Res.df$Tool)
-    Res.df$Zone <- as.factor(Res.df$Zone)
-    Res.df$Side <- as.factor(Res.df$Side)
-    Res.df$Cut <- as.factor(Res.df$Cut)
-    Res.df$ROI <- as.factor(Res.df$ROI)
-    
-  #Output
-  return(Res.df)
-}
-```
-
-We apply it to the folder containing the .txt files
 
 ```{r Import Data}
 ResToolMarks <- ImportToolmarksData("AllProfiles/")
@@ -88,22 +32,6 @@ View(Selection1)
 
 To plot a chosen profile.
 
-```{r functions_to_plot}
-Extract_One_profile <- function(selection, number){
-  a <- as.data.frame(cbind(x=unlist(selection[number,]$x),
-           y= unlist(selection[number,]$y)))
-  comment(a) <- selection[number,]$File
-  return(a)
-}
-
-Plot_profile <- function(Profile){
-  p1 <- ggplot(Profile, aes(x , y)) + 
-         geom_line(colour="blue") +
-    ggtitle(comment(Profile))
-  p1
-}
-```
-
 ```{r plot}
 a <- Extract_One_profile(Selection1,1)
 b <- Extract_One_profile(Selection1,5)
@@ -111,15 +39,13 @@ b <- Extract_One_profile(Selection1,5)
 p1 <- Plot_profile(a)
 p2 <- Plot_profile(b)
 
-#Goin them
+#Joining them
 grid.arrange(p1,p2, ncol=1)
 ```
 
-# Matching
-
-```{r matching}
-
+We save the data as an RDS file that we can use at a later time.
+```{r save_data}
+saveRDS(ResToolMarks,"ResToolMarks.Rds")
 ```
-
 
 

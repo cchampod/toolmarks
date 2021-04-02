@@ -34,23 +34,39 @@ plot(alignment,type="threeway")
 
 ```{r Make_selection}
 
-K1_Z1_ROI1 <- ResToolMarks %>%
+K1_Z1_A1_ROI1 <- ResToolMarks %>%
   filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 1)
-
-K1_Z2_ROI1 <- ResToolMarks %>%
+K1_Z2_A1_ROI1 <- ResToolMarks %>%
   filter(Tool == "K1" & Zone == 2 & Side == "A1" & ROI == 1)
 
-#Join them up
-Selection1 <- rbind(K1_Z1_ROI1,K1_Z2_ROI1)
+K1_Z1_A2_ROI1 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 1 & Side == "A2" & ROI == 1)
+K1_Z2_A2_ROI1 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 2 & Side == "A2" & ROI == 1)
+
+#Join them up and select y only
+Selection1 <- rbind(K1_Z1_A1_ROI1,
+                    K1_Z2_A1_ROI1,
+                    K1_Z1_A2_ROI1,
+                    K1_Z2_A2_ROI1) %>%
+  select(y)
 ```
 
-We can compute DTW distances for all the entities in Test
+We can compute DTW distances for all the entities in Selection1. Note that we can process directly lists with proxy::dist().
 
 ```{r DTW_distances}
+# To compute DTW pairwise distances
+mv_distmat_dtwclust <- proxy::dist(Selection1$y,
+                                   method = "dtw_basic")
 
-Matrix1 <- Profile_matrix(Selection1)
+#To construct a hierarchical clustering
+#Distance can be either "dtw" or "dtw_basic" (quicker)
+clust.hier <- tsclust(Selection1$y, 
+                      type = "hierarchical", 
+                      distance = "dtw", 
+                      clustering="pam")
 
-Distances <- dist(Matrix1[1:5,], method = "DTW")
-
+#To plot
+plot(clust.hier)
 ```
 

@@ -7,6 +7,8 @@ library(tidyverse)
 library(gridExtra) #for grid.arrange()
 library(toolmaRk)
 library(dtw)
+library(proxy)
+library(dtwclust)
 
 #The function below will read all .txt files 
 #in a folder and prepare a dataframe with the relevant information.
@@ -75,19 +77,3 @@ Plot_profile <- function(Profile){
     ggtitle(comment(Profile))
   p1
 }
-
-#From a selection of profiles to a matrix of y-profiles
-Profile_matrix <- function(selection){
-  #We prepare a matrix with nrow matching the number of lines in selection
-  #and the ncol based on the maximum of the length of y values
-  #not the use of lengths() to get the length of each element of the list
-  results <- as.data.frame(matrix(NA, 
-                                  nrow=nrow(Test), 
-                                  ncol=max(lengths(selection$y))))
-  for(index in 1:nrow(Test)){
-    y <- unlist(selection[index,]$y)
-    results[index,1:length(y)] <- y
-  }
-  return(results)
-}
-

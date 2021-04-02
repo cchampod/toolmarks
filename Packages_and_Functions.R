@@ -76,3 +76,18 @@ Plot_profile <- function(Profile){
   p1
 }
 
+#From a selection of profiles to a matrix of y-profiles
+Profile_matrix <- function(selection){
+  #We prepare a matrix with nrow matching the number of lines in selection
+  #and the ncol based on the maximum of the length of y values
+  #not the use of lengths() to get the length of each element of the list
+  results <- as.data.frame(matrix(NA, 
+                                  nrow=nrow(Test), 
+                                  ncol=max(lengths(selection$y))))
+  for(index in 1:nrow(Test)){
+    y <- unlist(selection[index,]$y)
+    results[index,1:length(y)] <- y
+  }
+  return(results)
+}
+

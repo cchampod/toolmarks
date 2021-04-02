@@ -1,0 +1,56 @@
+---
+title: "Match toolmarks with DTW"
+author: "Christophe Champod"
+date: "04/01/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Load required packages and functions
+source("Packages_and_Functions.R")
+```
+
+# Load data
+
+The function ImportToolmarksData() below will read all .txt files in a folder and prepare a dataframe with the relevant information.
+
+```{r load_data}
+ResToolMarks <- readRDS("ResToolMarks.Rds")
+```
+
+A few test using the DTW package. https://dtw.r-forge.r-project.org/
+```{r}
+a <- Extract_One_profile(ResToolMarks,1)$y
+b <- Extract_One_profile(ResToolMarks,35)$y
+
+## Find the best match with the canonical recursion formula
+alignment <- dtw(a,b,keep=TRUE)
+
+## Display the warping curve, i.e. the alignment curve
+plot(alignment,type="threeway")
+```
+
+```{r Make_selection}
+
+K1_Z1_ROI1 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 1)
+
+K1_Z2_ROI1 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 2 & Side == "A1" & ROI == 1)
+
+#Join them up
+Selection1 <- rbind(K1_Z1_ROI1,K1_Z2_ROI1)
+```
+
+We can compute DTW distances for all the entities in Test
+
+```{r DTW_distances}
+
+Matrix1 <- Profile_matrix(Selection1)
+
+Distances <- dist(Matrix1[1:5,], method = "DTW")
+
+```
+

@@ -54,6 +54,8 @@ Selection1 <- rbind(K1_Z1_A1_ROI1,
 
 We can compute DTW distances for all the entities in Selection1. Note that we can process directly lists with proxy::dist().
 
+## With DTW and dtwclust
+
 ```{r DTW_distances}
 # To compute DTW pairwise distances
 mv_distmat_dtwclust <- proxy::dist(Selection1$y,
@@ -63,10 +65,76 @@ mv_distmat_dtwclust <- proxy::dist(Selection1$y,
 #Distance can be either "dtw" or "dtw_basic" (quicker)
 clust.hier <- tsclust(Selection1$y, 
                       type = "hierarchical", 
-                      distance = "dtw", 
+                      distance = "dtw_basic", 
                       clustering="pam")
 
 #To plot
 plot(clust.hier)
 ```
+
+## DTW with TSclust
+
+Based in the example from https://damien-datasci-blog.netlify.app/post/time-series-clustering-with-dynamic-time-warp/
+
+It gives very similar results compared to tsclust()
+
+```{r TSclust}
+
+dist_ts <- TSclust::diss(SERIES = Selection1$y, METHOD = "DTWARP")
+
+hc <- stats::hclust(dist_ts, method="complete")
+# method can be also "average" or diana (for DIvisive ANAlysis Clustering)
+# k for cluster which is 4 in our case 
+hclus <- stats::cutree(hc, k = 4) %>% 
+  # hclus <- cluster::pam(dist_ts, k = 4)$clustering 
+  #has a similar result
+  as.data.frame(.) %>%
+  dplyr::rename(.,cluster_group = .) %>%
+  tibble::rownames_to_column("type_col")
+
+hcdata <- ggdendro::dendro_data(hc)
+
+names_order <- rbind(K1_Z1_A1_ROI1,
+                    K1_Z2_A1_ROI1,
+                    K1_Z1_A2_ROI1,
+                    K1_Z2_A2_ROI1) %>%
+  select(File)
+
+# Use the following to remove labels from dendogram so not doubling up - but good for checking hcdata$labels$label <- ""
+
+p1 <- hcdata %>%
+  ggdendro::ggdendrogram(., rotate=FALSE, leaf_labels=TRUE)
+
+p1
+```
+
+It is possible to register a new DTW function adapted to take advantage of specific parameters of the dtw(): step.pattern, open.end, open.begin, etc.
+
+```{r newDTW}
+# we specify the new DTW distance as a function
+ndtw <- function(x, y, ...) {
+  dtw(x, y, ...,
+      open.end = TRUE,
+      open.begin = TRUE,
+      distance.only = TRUE)$normalizedDistance
+}
+
+# Register the distance with proxy
+proxy::pr_DB$set_entry(FUN = ndtw, names = c("nDTW"),
+                       loop = TRUE, type = "metric", distance = TRUE,
+                       description = "Normalized, asymmetric DTW")
+
+# Clustering
+# It will take some time to compute
+cluster.nDTW <- dtwclust::tsclust(Selection1$y,
+                      type = "hierarchical",
+                      distance = "nDTW")
+#To plot
+plot(cluster.nDTW)
+
+#Plot with ggdendro()
+
+
+```
+
 

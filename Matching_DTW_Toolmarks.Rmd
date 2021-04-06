@@ -50,6 +50,25 @@ Selection1 <- rbind(K1_Z1_A1_ROI1,
                     K1_Z1_A2_ROI1,
                     K1_Z2_A2_ROI1) %>%
   select(y)
+
+#Keep names and design a label to be added to ggdendro
+labels_Selection1 <- rbind(K1_Z1_A1_ROI1,
+                    K1_Z2_A1_ROI1,
+                    K1_Z1_A2_ROI1,
+                    K1_Z2_A2_ROI1) %>%
+  mutate(Label = paste0("Z",Zone,
+                        Side,
+                        "ROI", ROI,
+                        "/",Cut)) %>%
+  select(File,Label)
+
+#If we want the labels on all data
+labels_ResToolMarks <- ResToolMarks %>%
+  mutate(Label = paste0("Z",Zone,
+                        Side,
+                        "ROI", ROI,
+                        "/",Cut)) %>%
+  select(File,Label)
 ```
 
 We can compute DTW distances for all the entities in Selection1. Note that we can process directly lists with proxy::dist().
@@ -94,12 +113,6 @@ hclus <- stats::cutree(hc, k = 4) %>%
 
 hcdata <- ggdendro::dendro_data(hc)
 
-names_order <- rbind(K1_Z1_A1_ROI1,
-                    K1_Z2_A1_ROI1,
-                    K1_Z1_A2_ROI1,
-                    K1_Z2_A2_ROI1) %>%
-  select(File)
-
 # Use the following to remove labels from dendogram so not doubling up - but good for checking hcdata$labels$label <- ""
 
 p1 <- hcdata %>%
@@ -120,21 +133,49 @@ ndtw <- function(x, y, ...) {
 }
 
 # Register the distance with proxy
-proxy::pr_DB$set_entry(FUN = ndtw, names = c("nDTW"),
-                       loop = TRUE, type = "metric", distance = TRUE,
+proxy::pr_DB$set_entry(FUN = ndtw, 
+                       names = c("nDTW"),
+                       loop = TRUE, 
+                       type = "metric",
+                       distance = TRUE,
                        description = "Normalized, asymmetric DTW")
+```
 
+```{r Proxy_Apply_to_selection1}
 # Clustering
 # It will take some time to compute
 cluster.nDTW <- dtwclust::tsclust(Selection1$y,
                       type = "hierarchical",
                       distance = "nDTW")
+
+#adapt labels - check manually please
+cluster.nDTW$labels <- labels_Selection1$Label
 #To plot
 plot(cluster.nDTW)
 
 #Plot with ggdendro()
+ggdendro::ggdendrogram(as.dendrogram(cluster.nDTW) %>%
+                         set("labels_cex", 1),
+                       rotate=TRUE, labels=TRUE)
 
-
+#We can get the distances
+distmat_dtwclust_nDTW <- proxy::dist(Selection1$y,
+                                   method = "nDTW")
 ```
 
+```{r Proxy_Apply_to_alldata}
+# It will take some time to compute
+clusterResToolMarks.nDTW <- dtwclust::tsclust(ResToolMarks$y,
+                      type = "hierarchical",
+                      distance = "nDTW",
+                      seed = 1234,
+                      trace = TRUE)
+
+clusterResToolMarks.nDTW <- labels_ResToolMarks$Label
+
+#To plot
+ggdendro::ggdendrogram(as.dendrogram(clusterResToolMarks.nDTW) %>%
+                         set("labels_cex", 1),
+                       rotate=TRUE, labels=TRUE)
+```
 

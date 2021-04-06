@@ -11,6 +11,7 @@ library(proxy)
 library(dtwclust)
 library(TSclust)
 library(ggdendro)
+library(dendextend)
 
 #The function below will read all .txt files 
 #in a folder and prepare a dataframe with the relevant information.

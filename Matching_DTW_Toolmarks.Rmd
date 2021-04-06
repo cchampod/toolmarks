@@ -178,5 +178,7 @@ p2 <- ggdendro::ggdendrogram(as.dendrogram(clusterResToolMarks.nDTW) %>%
                          set("labels_cex", 1),
                        rotate=TRUE, labels=TRUE)
 p2
+
+ggsave("dendro1.pdf",p2,width=30,height=100,units="cm")
 ```
 

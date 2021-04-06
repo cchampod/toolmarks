@@ -171,11 +171,12 @@ clusterResToolMarks.nDTW <- dtwclust::tsclust(ResToolMarks$y,
                       seed = 1234,
                       trace = TRUE)
 
-clusterResToolMarks.nDTW <- labels_ResToolMarks$Label
+clusterResToolMarks.nDTW$labels <- labels_ResToolMarks$Label
 
 #To plot
-ggdendro::ggdendrogram(as.dendrogram(clusterResToolMarks.nDTW) %>%
+p2 <- ggdendro::ggdendrogram(as.dendrogram(clusterResToolMarks.nDTW) %>%
                          set("labels_cex", 1),
                        rotate=TRUE, labels=TRUE)
+p2
 ```
 

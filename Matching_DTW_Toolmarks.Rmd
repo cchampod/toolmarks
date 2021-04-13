@@ -152,6 +152,12 @@ cluster.nDTW <- dtwclust::tsclust(Selection1$y,
                       type = "hierarchical",
                       distance = "nDTW")
 
+#Distances
+Distance.matrix <- cluster.nDTW@distmat
+#Should be the same as
+Distance.matrix2 <- proxy::dist(Selection1$y,
+                                   method = "nDTW")
+
 #adapt labels - check manually please
 cluster.nDTW$labels <- labels_Selection1$Label
 #To plot

@@ -173,6 +173,52 @@ distmat_dtwclust_nDTW <- proxy::dist(Selection1$y,
                                    method = "nDTW")
 ```
 
+Test on a selection2 with the three ROIs.
+
+```{r Selection2}
+K1_Z1_A1_ROI1 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 1)
+K1_Z1_A1_ROI2 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 2)
+K1_Z1_A1_ROI3 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 3)
+
+
+#Join them up and select y only
+Selection2 <- rbind(K1_Z1_A1_ROI1,
+                    K1_Z1_A1_ROI2,
+                    K1_Z1_A1_ROI3) %>%
+  select(y)
+
+#Keep names and design a label to be added to ggdendro
+labels_Selection2 <- rbind(K1_Z1_A1_ROI1,
+                    K1_Z1_A1_ROI2,
+                    K1_Z1_A1_ROI3) %>%
+  mutate(Label = paste0("Z",Zone,
+                        Side,
+                        "ROI", ROI,
+                        "/",Cut)) %>%
+  select(File,Label)
+
+# Clustering
+# It will take some time to compute
+cluster.nDTW.selection2 <- dtwclust::tsclust(Selection2$y,
+                      type = "hierarchical",
+                      distance = "nDTW")
+
+#adapt labels - check manually please
+cluster.nDTW.selection2$labels <- labels_Selection2$Label
+#To plot
+plot(cluster.nDTW.selection2)
+
+#Plot with ggdendro()
+ggdendro::ggdendrogram(as.dendrogram(cluster.nDTW.selection2) %>%
+                         set("labels_cex", 1),
+                       rotate=TRUE, labels=TRUE)
+
+```
+
+We apply on the all datasets
 ```{r Proxy_Apply_to_alldata}
 # It will take some time to compute
 clusterResToolMarks.nDTW <- dtwclust::tsclust(ResToolMarks$y,

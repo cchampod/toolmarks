@@ -98,7 +98,7 @@ Based in the example from https://damien-datasci-blog.netlify.app/post/time-seri
 It gives very similar results compared to tsclust()
 
 ```{r TSclust}
-
+#Compute parwise distances
 dist_ts <- TSclust::diss(SERIES = Selection1$y, METHOD = "DTWARP")
 
 hc <- stats::hclust(dist_ts, method="complete")
@@ -127,10 +127,14 @@ It is possible to register a new DTW function adapted to take advantage of speci
 # we specify the new DTW distance as a function
 ndtw <- function(x, y, ...) {
   dtw(x, y, ...,
+      step.pattern = asymmetric,
       open.end = TRUE,
       open.begin = TRUE,
       distance.only = TRUE)$normalizedDistance
 }
+
+#delete name from proxy pr_DB
+pr_DB$delete_entry("ndtw")
 
 # Register the distance with proxy
 proxy::pr_DB$set_entry(FUN = ndtw, 

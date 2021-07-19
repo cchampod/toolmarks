@@ -12,6 +12,8 @@ library(dtwclust)
 library(TSclust)
 library(ggdendro)
 library(dendextend)
+library(warbleR) #pour certaines correlations
+library(correlation)
 
 #The function below will read all .txt files 
 #in a folder and prepare a dataframe with the relevant information.

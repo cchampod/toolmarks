@@ -30,6 +30,11 @@ alignment <- dtw(a,b,keep=TRUE)
 
 ## Display the warping curve, i.e. the alignment curve
 plot(alignment,type="threeway")
+
+## Display distance points (as may as wanted) with offset for viewing
+plot(dtw(a,b,k=TRUE), 
+          type="two",off=1,match.lty=2,
+          match.indices=20)
 ```
 
 ```{r Make_selection}

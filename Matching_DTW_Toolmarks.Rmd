@@ -31,7 +31,7 @@ alignment <- dtw(a,b,keep=TRUE)
 ## Display the warping curve, i.e. the alignment curve
 plot(alignment,type="threeway")
 
-## Display distance points (as may as wanted) with offset for viewing
+## Display distance points (as many as wanted) with offset for viewing
 plot(dtw(a,b,k=TRUE), 
           type="two",off=1,match.lty=2,
           match.indices=20)
@@ -55,6 +55,7 @@ Selection1 <- rbind(K1_Z1_A1_ROI1,
                     K1_Z1_A2_ROI1,
                     K1_Z2_A2_ROI1) %>%
   select(y)
+  
 
 #Keep names and design a label to be added to ggdendro
 labels_Selection1 <- rbind(K1_Z1_A1_ROI1,
@@ -84,6 +85,39 @@ We can compute DTW distances for all the entities in Selection1. Note that we ca
 # To compute DTW pairwise distances
 mv_distmat_dtwclust <- proxy::dist(Selection1$y,
                                    method = "dtw_basic")
+
+# Transform this list into a matrix to plot a color map
+
+ma_mv_distmat <- as.matrix(mv_distmat_dtwclust)
+df_mv_distmat <- as.data.frame(ma_mv_distmat)
+
+# Heatmap from dtw scores, only lower part to avoid repetitive data
+
+get_lower_tri<-function(cormat){
+    cormat[upper.tri(cormat)] <- NA
+    return(cormat)}
+    
+lower_tri <- get_lower_tri(ma_mv_distmat)
+
+m_ma_mv <- melt(lower_tri, na.rm=TRUE) #met toutes les valeurs dans une colonne
+
+ggplot(data = m_ma_mv, aes(x=Var1, y=Var2, fill=value)) + # easy way
+  geom_tile()
+
+ggplot(data = m_ma_mv, aes(Var1, Var2, fill = value))+  # fancier way
+    geom_tile(color = "white", size=0.1)+
+    scale_fill_gradient2(low = "red", high = "yellow", mid = "orange", 
+    midpoint = 150, limit = c(60,265), space = "Lab",
+    name="DTW score") +
+    theme_minimal()+
+    theme(axis.line = element_line(linetype="blank"))+
+    coord_fixed()+ 
+    labs(title= "DTW Scores Intra vs Inter", 
+         x= "K1Z1A1       K1Z2A1       K1Z1A2       KZ2A2  ",
+         y= "K1Z1A1      K1Z2A1      K1Z1A2      KZ2A2")+
+    theme(axis.title.x = element_text(vjust = 1),
+          axis.title.y = element_text(vjust = 1))
+
 
 #To construct a hierarchical clustering
 #Distance can be either "dtw" or "dtw_basic" (quicker)
@@ -159,9 +193,48 @@ cluster.nDTW <- dtwclust::tsclust(Selection1$y,
 
 #Distances
 Distance.matrix <- cluster.nDTW@distmat
-#Should be the same as
+ma_distmat1 <- as.matrix(Distance.matrix)
+df_distmat1 <- as.data.frame(Distance.matrix)
+    
+lw_distmat1 <- get_lower_tri(ma_distmat1)
+
+m_lw_distmat1 <- melt(lw_distmat1, na.rm=TRUE)
+
+ggplot(data = m_lw_distmat1, aes(Var1, Var2, fill = value))+  # fancier way
+    geom_tile(color = "white")+
+    scale_fill_gradient2(low = "red", high = "yellow", mid = "orange", 
+    limit = c(0.019,0.115), space = "Lab",
+    name="DTW score") +
+    theme_minimal()+
+    theme(axis.line = element_line(linetype="blank"))+
+    coord_fixed()+ 
+    labs(title= "DTW Scores Intra vs Inter", 
+         x= "K1Z1A1       K1Z2A1       K1Z1A2       KZ2A2  ",
+         y= "K1Z1A1      K1Z2A1      K1Z1A2      KZ2A2")+
+    theme(axis.title.x = element_text(vjust = 1),
+          axis.title.y = element_text(vjust = 1))
+#Should be the same as but it is not if we display it as a matrix
+# This one symetrical when the first one is not
+
 Distance.matrix2 <- proxy::dist(Selection1$y,
                                    method = "nDTW")
+ma_distmat2 <- as.matrix(Distance.matrix2)
+lw_distmat2 <- get_lower_tri(ma_distmat2)
+m_lw_distmat2 <- melt(lw_distmat2, na.rm=TRUE)
+
+ggplot(data = m_lw_distmat2, aes(Var1, Var2, fill = value))+  # fancier way
+    geom_tile(color = "white")+
+    scale_fill_gradient2(low = "red", high = "yellow", mid = "orange", 
+    limit = c(0.019,0.115), space = "Lab",
+    name="DTW score") +
+    theme_minimal()+
+    theme(axis.line = element_line(linetype="blank"))+
+    coord_fixed()+ 
+    labs(title= "DTW Scores Intra vs Inter", 
+         x= "K1Z1A1       K1Z2A1       K1Z1A2       KZ2A2  ",
+         y= "K1Z1A1      K1Z2A1      K1Z1A2      KZ2A2")+
+    theme(axis.title.x = element_text(vjust = 1),
+          axis.title.y = element_text(vjust = 1))
 
 #adapt labels - check manually please
 cluster.nDTW$labels <- labels_Selection1$Label
@@ -174,8 +247,10 @@ ggdendro::ggdendrogram(as.dendrogram(cluster.nDTW) %>%
                        rotate=TRUE, labels=TRUE)
 
 #We can get the distances
+#Comment, no differences with Distance.matrix2 ?
 distmat_dtwclust_nDTW <- proxy::dist(Selection1$y,
                                    method = "nDTW")
+
 ```
 
 Test on a selection2 with the three ROIs.

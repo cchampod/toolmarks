@@ -23,7 +23,8 @@ ResToolMarks <- readRDS("ResToolMarks.Rds")
 A few test using the DTW package. https://dtw.r-forge.r-project.org/
 ```{r}
 a <- Extract_One_profile(ResToolMarks,1)$y
-b <- Extract_One_profile(ResToolMarks,35)$y
+b <- Extract_One_profile(ResToolMarks,7)$y
+
 
 ## Find the best match with the canonical recursion formula
 alignment <- dtw(a,b,keep=TRUE)
@@ -35,6 +36,28 @@ plot(alignment,type="threeway")
 plot(dtw(a,b,k=TRUE), 
           type="two",off=1,match.lty=2,
           match.indices=20)
+
+## Plot the reference profile and the warped profile with DTW alignement
+
+a_index<-dput(as.double(alignment$index1s));
+Stretch_a<-(a[c(a_index)]);
+
+b_index<-dput(as.double(alignment$index2s));
+Stretch_b<-(b[c(b_index)]);
+
+a_df <- as.data.frame(cbind(c(1:length(Stretch_a)),Stretch_a)) #into dataframe for ggplot
+b_df <- as.data.frame(cbind(c(1:length(Stretch_b)),Stretch_b))
+
+colnames(a_df) <- c("x","y") # change column names to match the aes for the plot
+colnames(b_df) <- c("x","y")
+
+P_align <- ggplot(NULL, aes(x,y)) + 
+  geom_line(data=a_df, colour="red") +
+  geom_line(data=b_df, colour="blue")+
+  ggtitle("Profil a vs Profil b")
+P_align
+
+
 ```
 
 ```{r Make_selection}

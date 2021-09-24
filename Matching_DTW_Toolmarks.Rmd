@@ -239,6 +239,7 @@ ggplot(data = m_lw_distmat1, aes(Var1, Var2, fill = value))+  # fancier way
 #Should be the same as but it is not if we display it as a matrix
 # This one symetrical when the first one is not
 
+
 Distance.matrix2 <- proxy::dist(Selection1$y,
                                    method = "nDTW")
 ma_distmat2 <- as.matrix(Distance.matrix2)
@@ -291,7 +292,7 @@ K1_Z1_A1_ROI3 <- ResToolMarks %>%
 Selection2 <- rbind(K1_Z1_A1_ROI1,
                     K1_Z1_A1_ROI2,
                     K1_Z1_A1_ROI3) %>%
-  select(y)
+  select(File,y)
 
 #Keep names and design a label to be added to ggdendro
 labels_Selection2 <- rbind(K1_Z1_A1_ROI1,
@@ -312,13 +313,104 @@ cluster.nDTW.selection2 <- dtwclust::tsclust(Selection2$y,
 #adapt labels - check manually please
 cluster.nDTW.selection2$labels <- labels_Selection2$Label
 #To plot
-plot(cluster.nDTW.selection2)
+plot(cluster.nDTW.selection3)
 
 #Plot with ggdendro()
 ggdendro::ggdendrogram(as.dendrogram(cluster.nDTW.selection2) %>%
                          set("labels_cex", 1),
                        rotate=TRUE, labels=TRUE)
 
+```
+
+
+```{r Selection4}
+# Here the objective is to compare regions of interest between them and then reassemble
+# To get the 3 scores from a comparison between 2 toolmarks 
+# One selection for each ROI to compare ROI's between themselves
+Selection4 <- K1_Z1_A1_ROI1 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 1) %>% select(File,y)
+
+Selection5 <- K1_Z1_A1_ROI2 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 2) %>% select(File,y)
+
+Selection6 <- K1_Z1_A1_ROI3 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 3) %>% select(File,y)
+
+# Calculating the distance matrix for each ROI
+mv_distmat_dtwclust4 <- proxy::dist(Selection4$y,
+                                   method = "nDTW")
+
+mv_distmat_dtwclust5 <- proxy::dist(Selection5$y,
+                                   method = "nDTW")
+
+mv_distmat_dtwclust6 <- proxy::dist(Selection6$y,
+                                   method = "nDTW")
+
+#creating a dataframe with one column with all the scores for each ROI
+DF_S4 <-  cbind(mv_distmat_dtwclust4) %>% as.data.frame()
+DF_S5 <-  cbind(mv_distmat_dtwclust5) %>% as.data.frame()
+DF_S6 <-  cbind(mv_distmat_dtwclust6) %>% as.data.frame()
+
+# Dataframe with 3 columns, one for each ROI, each row corresponds to a  1v1 toolmark comparison
+# Each row has 3 scores, one for each ROI between two toolmarks
+DF_K1Z1A1 <-cbind(DF_S4, DF_S5, DF_S6)
+
+
+# Shorter version for nDTW
+DF_S7_nDTW <- proxy::dist(Selection4$y,
+                    method = "nDTW") %>% 
+         cbind() %>%
+         as.data.frame() 
+         
+DF_S8_nDTW <- proxy::dist(Selection5$y,
+                    method = "nDTW") %>% 
+         cbind() %>%
+         as.data.frame() 
+  
+DF_S9_nDTW <- proxy::dist(Selection6$y,
+                    method = "nDTW") %>% 
+         cbind() %>%
+         as.data.frame() 
+
+ 
+
+DF_K1Z1A1_nDTW <-cbind(DF_S7_nDTW, DF_S8_nDTW, DF_S9_nDTW)
+colnames(DF_K1Z1A1_nDTW) <- c("ROI1", "ROI2", "ROI3") #renaming columns 
+#adding a column with the average of the 3 values
+DF_K1Z1A1_nDTW$Mean <- rowMeans(DF_K1Z1A1_nDTW[,grep("RO",names(DF_K1Z1A1_nDTW))])
+
+#Normalising the score to a value between 0 and 1, a tolerance value has to be chosen
+TolScore <- 0.09
+DF_K1Z1A1_nDTW$Nscore <- (TolScore-DF_K1Z1A1_nDTW[,4])/TolScore #into a new column
+
+
+# Same for DTW
+
+DF_S7_DTW <- proxy::dist(Selection4$y,
+                    method = "DTW") %>% 
+         cbind() %>%
+         as.data.frame() 
+         
+DF_S8_DTW <- proxy::dist(Selection5$y,
+                    method = "DTW") %>% 
+         cbind() %>%
+         as.data.frame() 
+  
+DF_S9_DTW <- proxy::dist(Selection6$y,
+                    method = "DTW") %>% 
+         cbind() %>%
+         as.data.frame()
+
+DF_K1Z1A1_DTW <-cbind(DF_S7_DTW, DF_S8_DTW, DF_S9_DTW)
+colnames(DF_K1Z1A1_DTW) <- c("ROI1", "ROI2", "ROI3") #renaming columns 
+#adding a column with the average of the 3 values
+DF_K1Z1A1_DTW$Mean <- rowMeans(DF_K1Z1A1_DTW[,grep("RO",names(DF_K1Z1A1_DTW))])
+
+#Normalising the score to a value between 0 and 1, a tolerance value has to be chosen
+TolScore <- 130
+DF_K1Z1A1_DTW$score <- (TolScore-DF_K1Z1A1_DTW[,4])/TolScore #into a new column
+
+DFmerge <-inner_join(DF_K1Z1A1_DTW,DF_K1Z1A1_nDTW, by = c("ROI1", "ROI2", "ROI3")) 
 ```
 
 We apply on the all datasets
@@ -340,4 +432,31 @@ p2
 
 ggsave("dendro1.pdf",p2,width=30,height=100,units="cm")
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -25,7 +25,25 @@ A few test using the DTW package. https://dtw.r-forge.r-project.org/
 a <- Extract_One_profile(ResToolMarks,1)$y
 b <- Extract_One_profile(ResToolMarks,7)$y
 
+cv <- ccf(a,b, lag.max = 700)
+sco <-  cv$acf[,,1]
+lag <-  cv$lag[,,1]
+res <-  data.frame(sco,lag)
+lag_max <-  res[which.max(res$sco),]$lag
+sco_max <- max(sco)
+lag_max
+sco_max
 
+
+a1 <-  rep(NA,lag_max)
+A_new <- append(a, a1)
+A_new
+
+b1 <- rep(NA,lag_max)
+B_new <- append(b1,b)
+B_new
+
+ccf(A_new, B_new, na.action = na.omit)
 ## Find the best match with the canonical recursion formula
 alignment <- dtw(a,b,keep=TRUE)
 
@@ -337,6 +355,13 @@ Selection6 <- K1_Z1_A1_ROI3 <- ResToolMarks %>%
   filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 3) %>% select(File,y)
 
 # Calculating the distance matrix for each ROI
+
+Selection4MinusR6 <- Selection4[-c(6),]
+
+mv_dist_corr <- proxy::dist(Selection4MinusR6$y, method= "Pearson")
+DF_S4Pear <-  cbind(mv_dist_corr) %>% as.data.frame()
+
+
 mv_distmat_dtwclust4 <- proxy::dist(Selection4$y,
                                    method = "nDTW")
 

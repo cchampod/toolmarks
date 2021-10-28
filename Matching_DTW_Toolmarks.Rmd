@@ -20,33 +20,130 @@ The function ImportToolmarksData() below will read all .txt files in a folder an
 ResToolMarks <- readRDS("ResToolMarks.Rds")
 ```
 
+
+
+The first function (CCF) takes the ccf between two profiles and stores the max ccf score and the corresponding lag
+The second one (CCF_all) does this to a batch of profiles based on a table
+The third one (CutProfiles) uses the lag value found in CCF_all to align profiles by cutting them.
+It then computes the ndtw and adds the score in to the result dataframe create in CCF_all
+```{r CCF function}
+
+CCF <- function(a,b, ratio=3){
+  cv <- ccf(a,b, lag.max = round(length(a)/ratio,0))
+  sco <- cv$acf
+  lag <- cv$lag
+  res <-  data.frame(sco,lag)
+  lag_max <-  res[which.max(res$sco),]$lag
+  sco_max <- max(sco)
+  output <- c(lag_max,sco_max)
+  return(output)
+}
+
+CCF(a,b)
+
+table <- as.data.frame(t(combn(length(Selection4$y),2))) 
+#create a table of all possible combination without any repetitions
+
+CCF_all <- function(Selection, table){
+  nProfile <- nrow(table)
+  res <-  data.frame(matrix(NA,nrow=nProfile,ncol=3))
+  for(i in 1:nProfile) {
+    a <- unlist(Selection$y[table[i,1]])
+    b <- unlist(Selection$y[table[i,2]])
+    nameComp <- paste(Selection$File[table[i,1]],"vs.",Selection$File[table[i,2]])
+    ccf <- CCF(a, b)
+    res[i,1] <- nameComp
+    res[i,2:3] <- ccf
+  }
+  colnames(res) <- c("nameComp", "lag", "corr")
+return(res)
+}
+
+test <- CCF_all(Selection4,table)
+
+#debug(CCF_all)
+
+
+CutProfiles <- function(Selection, table, res){
+  res$ndtw <- NA
+  nProfile <- nrow(table) 
+  #Cut_P <-  data.frame(matrix(NA,nrow=nProfile,ncol=2)) #create Df for cut profiles
+  for(i in 1:nProfile){
+    a <- unlist(Selection$y[table[i,1]])
+    b <- unlist(Selection$y[table[i,2]])
+    Lag <- res$lag[i]  #ici ce sera test 
+      if (Lag<0) {
+        a2 <- head(a,-abs(Lag))
+        b2 <- tail(b,-abs(Lag))
+      }
+      else {
+        a2 <- tail(a,-Lag)
+        b2 <- head(b,-Lag)
+      }
+    NDTW <- ndtw(a2,b2)
+    res[i,4] <- NDTW
+    #Cut_P[i,1] <- paste(list(a2)) #copy cut profile into dataframe cell 1stcol
+    #Cut_P[i,2] <- paste(list(b2)) #copy cut profile into dataframe cell 2ndcol
+  }
+  # colnames(Cut_P) <- c("a2", "b2")
+return(res)
+# return(Cut_P) # In case I want the new aligned profiles for each comparison
+
+}
+#debug(CutProfiles)
+Test2 <- CutProfiles(Selection4,table,test)
+```
+
 A few test using the DTW package. https://dtw.r-forge.r-project.org/
 ```{r}
-a <- Extract_One_profile(ResToolMarks,1)$y
+a <- Extract_One_profile(ResToolMarks,1)$y #extract 1 profile from database
 b <- Extract_One_profile(ResToolMarks,7)$y
 
-cv <- ccf(a,b, lag.max = 700)
-sco <-  cv$acf[,,1]
-lag <-  cv$lag[,,1]
+
+cv <- ccf(a,b, lag.max = 700) #ccf between 2 profiles with given max lag
+sco <- cv$acf #cv$acf[,,1] #extract all scores
+lag <- cv$lag #cv$lag[,,1] #extract all lags
 res <-  data.frame(sco,lag)
-lag_max <-  res[which.max(res$sco),]$lag
-sco_max <- max(sco)
+lag_max <-  res[which.max(res$sco),]$lag #extract lag corresponding to ccf max
+sco_max <- max(sco) #extract ccf max
 lag_max
 sco_max
 
+a2 <- tail(a,-lag_max) ##removes values at the start of vector
+b2 <- head(b,-lag_max) ##removes values at the end of vector
 
-a1 <-  rep(NA,lag_max)
+a2b2 <- ccf(a2,b2, lag.max = 50) #verification of ccf max with aligned profiles
+sco2 <- a2b2$acf #cv$acf[,,1]
+lag2 <- a2b2$lag #cv$lag[,,1]
+res2 <-  data.frame(sco2,lag2)
+lag_max2 <-  res[which.max(res2$sco2),]$lag2
+sco_max2 <- max(sco)
+lag_max2
+sco_max2
+
+NDTW <- ndtw(a2,b2) #test ndtw score with aligned profiles
+
+alignment3 <- dtw(a2,b2,keep=TRUE) #dtw calcuation
+plot(dtw(a2,b2,k=TRUE),            #plot dtw
+          type="two",off=1,match.lty=2,
+          match.indices=20)
+
+##add NA at start or end of vectors depending on lag value
+a1 <-  rep(NA,abs(lag_max))
 A_new <- append(a, a1)
 A_new
 
-b1 <- rep(NA,lag_max)
+b1 <- rep(NA,abs(lag_max))
 B_new <- append(b1,b)
 B_new
 
 ccf(A_new, B_new, na.action = na.omit)
-## Find the best match with the canonical recursion formula
-alignment <- dtw(a,b,keep=TRUE)
 
+## dtw does not work with NA values in the profiles
+alignment <- dtw(A_new,B_new,keep=TRUE) #gives an error
+
+
+alignment <- dtw(a,b,keep=TRUE)
 ## Display the warping curve, i.e. the alignment curve
 plot(alignment,type="threeway")
 
@@ -78,6 +175,8 @@ P_align
 
 ```
 
+
+How to select profiles in the database to create batches for comparison
 ```{r Make_selection}
 
 K1_Z1_A1_ROI1 <- ResToolMarks %>%
@@ -118,7 +217,8 @@ labels_ResToolMarks <- ResToolMarks %>%
   select(File,Label)
 ```
 
-We can compute DTW distances for all the entities in Selection1. Note that we can process directly lists with proxy::dist().
+We can compute DTW distances for all the entities in Selection1. Note that we can process lists directly with proxy::dist().
+Different ways of visualizing are shown here. Heatmap easy and pretty way or with dendrogram
 
 ## With DTW and dtwclust
 
@@ -140,7 +240,7 @@ get_lower_tri<-function(cormat){
     
 lower_tri <- get_lower_tri(ma_mv_distmat)
 
-m_ma_mv <- melt(lower_tri, na.rm=TRUE) #met toutes les valeurs dans une colonne
+m_ma_mv <- melt(lower_tri, na.rm=TRUE) #puts every value in a single col
 
 ggplot(data = m_ma_mv, aes(x=Var1, y=Var2, fill=value)) + # easy way
   geom_tile()
@@ -175,11 +275,11 @@ plot(clust.hier)
 
 Based in the example from https://damien-datasci-blog.netlify.app/post/time-series-clustering-with-dynamic-time-warp/
 
-It gives very similar results compared to tsclust()
+It gives very similar results compared to tsclust() but it takes much longer, not viable
 
 ```{r TSclust}
 #Compute parwise distances
-dist_ts <- TSclust::diss(SERIES = Selection1$y, METHOD = "DTWARP")
+dist_ts <- TSclust::diss(SERIES = Selection1$y, METHOD = "DTWARP") #it takes really long
 
 hc <- stats::hclust(dist_ts, method="complete")
 # method can be also "average" or diana (for DIvisive ANAlysis Clustering)
@@ -200,6 +300,34 @@ p1 <- hcdata %>%
 
 p1
 ```
+
+Creating a DTW function taking into account NA values
+
+```{r NA_DTW}
+#this shows how to register a distance function with proxy
+
+
+DTW.DIST<-function (x,y)
+{
+
+  a<-na.omit(x)
+  b<-na.omit(y)
+
+  return(dtw(a,b)$normalizedDistance)
+}
+
+## create a new entry in the registry with two aliases
+pr_DB$set_entry(FUN = DTW.DIST, names = c("DTW.DIST"))
+
+## d<-dist(appliances_t, method = "DTW.DIST")
+## hc<-hclust(d,"ave")
+## plot(hc)
+
+pr_DB$delete_entry("DTW.DIST")
+
+
+```
+
 
 It is possible to register a new DTW function adapted to take advantage of specific parameters of the dtw(): step.pattern, open.end, open.begin, etc.
 
@@ -224,6 +352,8 @@ proxy::pr_DB$set_entry(FUN = ndtw,
                        distance = TRUE,
                        description = "Normalized, asymmetric DTW")
 ```
+
+New ndtw function is applied to a Selection
 
 ```{r Proxy_Apply_to_selection1}
 # Clustering
@@ -288,10 +418,7 @@ ggdendro::ggdendrogram(as.dendrogram(cluster.nDTW) %>%
                          set("labels_cex", 1),
                        rotate=TRUE, labels=TRUE)
 
-#We can get the distances
-#Comment, no differences with Distance.matrix2 ?
-distmat_dtwclust_nDTW <- proxy::dist(Selection1$y,
-                                   method = "nDTW")
+
 
 ```
 
@@ -340,6 +467,7 @@ ggdendro::ggdendrogram(as.dendrogram(cluster.nDTW.selection2) %>%
 
 ```
 
+Tests with new Selections that separate each ROI but then combines the score into a dataframe to have all score for each ROI of a comparison on a single row.
 
 ```{r Selection4}
 # Here the objective is to compare regions of interest between them and then reassemble
@@ -355,12 +483,6 @@ Selection6 <- K1_Z1_A1_ROI3 <- ResToolMarks %>%
   filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 3) %>% select(File,y)
 
 # Calculating the distance matrix for each ROI
-
-Selection4MinusR6 <- Selection4[-c(6),]
-
-mv_dist_corr <- proxy::dist(Selection4MinusR6$y, method= "Pearson")
-DF_S4Pear <-  cbind(mv_dist_corr) %>% as.data.frame()
-
 
 mv_distmat_dtwclust4 <- proxy::dist(Selection4$y,
                                    method = "nDTW")

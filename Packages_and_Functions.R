@@ -144,6 +144,33 @@ Aligned_scores <- function(Selection, table){
   return(res)
 }
 
+#To compute a DF with cut aligned profiles, can be used for single computation of similarity measures
+CutPDF <- function(Selection, table){
+  nProfile <- nrow(table)
+  Cut_P <-  data.frame(matrix(NA,nrow=nProfile,ncol=2)) #create Df for cut profiles
+  colnames(Cut_P) <- c("a2", "b2")
+  Lags <- CCF_all(Selection,table)
+  for(i in 1:nProfile){
+    a <- unlist(Selection$y[table[i,1]])
+    b <- unlist(Selection$y[table[i,2]])
+    Lag <- Lags$lag[i]  
+    if (Lag<0) {
+      a2 <- head(a,-abs(Lag))
+      b2 <- tail(b,-abs(Lag))
+    }
+    else {
+      a2 <- tail(a,-Lag)
+      b2 <- head(b,-Lag)
+    }
+    a2_l <- list(a2)
+    b2_l <- list(b2)
+    Cut_P$a2[i] <- a2_l #copy cut profile into dataframe cell 1stcol
+    Cut_P$b2[i] <- b2_l #copy cut profile into dataframe cell 2ndcol
+  }
+  
+  return(Cut_P)
+}
+
 #computes Relative Distances according to Bachrach 2010
 reldist <- function(a,b){
   x <- 1:length(a)
@@ -162,4 +189,34 @@ ndtw <- function(x, y, ...) {
       open.end = TRUE,
       open.begin = TRUE,
       distance.only = TRUE)$normalizedDistance
+}
+
+#To compute ndtw separately on the batch with aligned profiles
+batch_ndtw <- function(Selection,table){
+  nProfile <- nrow(table)
+  NDTW <- data.frame(matrix(NA,nrow=nProfile,ncol=1))
+  colnames(NDTW) <- c("Ndtw")
+  Cut_P <- CutPDF(Selection,table)
+  for(i in 1:nProfile){
+    a2i <- unlist(Cut_P$a2[i])
+    b2i <- unlist(Cut_P$b2[i])
+    score <- ndtw(a2i,b2i)
+    NDTW$Ndtw[i] <- score
+  }
+  return(NDTW)
+}
+
+#To compute reldist separately on the batch with aligned profiles
+batch_reldist <- function(Selection,table){
+  nProfile <- nrow(table)
+  rdist <- data.frame(matrix(NA,nrow=nProfile,ncol=1))
+  colnames(rdist) <- c("Rdist")
+  Cut_P <- CutPDF(Selection,table)
+  for(i in 1:nProfile){
+    a2i <- unlist(Cut_P$a2[i])
+    b2i <- unlist(Cut_P$b2[i])
+    score <- reldist(a2i,b2i)
+    rdist$Rdist[i] <- score
+  }
+  return(rdist)
 }

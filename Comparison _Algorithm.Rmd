@@ -1,0 +1,48 @@
+---
+title: "Comparison algorithm"
+author: "Jean Patteet"
+date: "03/11/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+source("Packages_and_Functions.R")
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r load data}
+ResToolMarks <- readRDS("ResToolMarks.Rds")
+```
+
+
+
+```{r  Select data}
+#Creates a selection of toolmarks based on the file names
+
+Selection1 <- K1_Z1_A1_ROI1 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 1) %>% select(File,y)
+
+#create a table of all possible combination without any repetitions
+
+Comb_table <- as.data.frame(t(combn(length(Selection1$y),2)))
+```
+
+
+
+```{r Comparison Scores}
+# Available functions : CCF, CCF_all, Aligned_scores. 
+#Aligned_scores automatically calls CCF and CCF_all
+
+Res1 <- Aligned_scores(Selection1,Comb_table)
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

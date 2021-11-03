@@ -82,3 +82,84 @@ Plot_profile <- function(Profile){
     ggtitle(comment(Profile))
   p1
 }
+
+#To compute CCF and extract the max score and the corresponding lag
+CCF <- function(a,b, ratio=3){
+  cv <- ccf(a,b, lag.max = round(length(a)/ratio,0))
+  sco <- cv$acf
+  lag <- cv$lag
+  res <-  data.frame(sco,lag)
+  lag_max <-  res[which.max(res$sco),]$lag
+  sco_max <- max(sco)
+  output <- c(lag_max,sco_max)
+  return(output)
+}
+
+#To compute CCF scores in batches creating a dataframe of all scores and lags
+CCF_all <- function(Selection, table){
+  nProfile <- nrow(table)
+  res <-  data.frame(matrix(NA,nrow=nProfile,ncol=3))
+  for(i in 1:nProfile) {
+    a <- unlist(Selection$y[table[i,1]])
+    b <- unlist(Selection$y[table[i,2]])
+    nameComp <- paste(Selection$File[table[i,1]],"vs.",Selection$File[table[i,2]])
+    ccf <- CCF(a, b)
+    res[i,1] <- nameComp
+    res[i,2:3] <- ccf
+  }
+  colnames(res) <- c("nameComp", "lag", "corr")
+  return(res)
+}
+
+#To align profiles and compute other metrics using aligned profiles
+Aligned_scores <- function(Selection, table){
+  res <- CCF_all(Selection,table)
+  res$ndtw <- NA
+  res$rdist <- NA
+  res$Uscore <- NA
+  nProfile <- nrow(table) 
+  
+  for(i in 1:nProfile){
+    a <- unlist(Selection$y[table[i,1]])
+    b <- unlist(Selection$y[table[i,2]])
+    Lag <- res$lag[i]  #ici ce sera test 
+    if (Lag<0) {
+      a2 <- head(a,-abs(Lag))
+      b2 <- tail(b,-abs(Lag))
+    }
+    else {
+      a2 <- tail(a,-Lag)
+      b2 <- head(b,-Lag)
+    }
+    NDTW <- ndtw(a2,b2) #get ndtw score into DF
+    Rdist <- reldist(a2,b2) #get relativedistance frome bachrach in DF
+    res[i,4] <- NDTW
+    res[i,5] <- Rdist
+    
+    am <- as.matrix(a2)
+    bm <- as.matrix(b2)
+    cnr <- chumbley_non_random(am,bm,window_val = 25,coarse = 0.07) #get Chumbley U stat into DF
+    res[i,6] <- cnr$U
+  }
+  return(res)
+}
+
+#computes Relative Distances according to Bachrach 2010
+reldist <- function(a,b){
+  x <- 1:length(a)
+  i <- x
+  nume <- sum(((a[i])-(b[i]))^2)
+  denom <- sum(((a[i])+(b[i]))^2)
+  
+  rdist <- 1-(nume/denom)
+  return(rdist) 
+}
+
+#To compute dtw with specific parameters and extract normalizedDistance
+ndtw <- function(x, y, ...) {
+  dtw(x, y, ...,
+      step.pattern = asymmetric,
+      open.end = TRUE,
+      open.begin = TRUE,
+      distance.only = TRUE)$normalizedDistance
+}

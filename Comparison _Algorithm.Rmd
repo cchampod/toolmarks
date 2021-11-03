@@ -37,10 +37,14 @@ Comb_table <- as.data.frame(t(combn(length(Selection1$y),2)))
 
 
 ```{r Comparison Scores}
-# Available functions : CCF, CCF_all, Aligned_scores. 
-#Aligned_scores automatically calls CCF and CCF_all
+# Available functions : CCF, CCF_all, Aligned_scores, CutPDF. 
+# Aligned_scores automatically calls CCF and CCF_all
+# CutPDF enables the examiner to extract aligned profiles
+# batch_ndtw and batch_reldist enables to compute one metric at a time
 
 Res1 <- Aligned_scores(Selection1,Comb_table)
+
+Res1_rdist <- batch_reldist(Selection1,Comb_table)
 
 
 ```

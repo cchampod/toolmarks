@@ -29,6 +29,12 @@ ResToolMarks <- readRDS("ResToolMarks.Rds")
 Selection1 <- K1_Z1_A1_ROI1 <- ResToolMarks %>%
   filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 1) %>% select(File,y)
 
+Selection2 <- K1_Z1_A1_ROI2 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 2) %>% select(File,y)
+
+Selection3 <- K1_Z1_A1_ROI3 <- ResToolMarks %>%
+  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 3) %>% select(File,y)
+
 #create a table of all possible combination without any repetitions
 
 Comb_table <- as.data.frame(t(combn(length(Selection1$y),2)))
@@ -43,8 +49,16 @@ Comb_table <- as.data.frame(t(combn(length(Selection1$y),2)))
 # batch_ndtw and batch_reldist enables to compute one metric at a time
 
 Res1 <- Aligned_scores(Selection1,Comb_table)
+Res2 <- Aligned_scores(Selection2,Comb_table)
+Res3 <- Aligned_scores(Selection3,Comb_table)
+
 
 Res1_rdist <- batch_reldist(Selection1,Comb_table)
+
+ResT <- Comb_ROI(Selection1,Selection2,Selection3,Comb_table)
+
+
+
 
 
 ```

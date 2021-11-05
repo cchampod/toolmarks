@@ -220,3 +220,27 @@ batch_reldist <- function(Selection,table){
   }
   return(rdist)
 }
+
+
+#To compute Aligned_scores for multiple Selection like different ROIs and put it in one dataframe
+Comb_ROI <- function(Selection1, Selection2, Selection3,table){
+  res1 <- Aligned_scores(Selection1,table)
+  res2 <- Aligned_scores(Selection2,table)
+  res3 <- Aligned_scores(Selection3,table)
+  
+  ResTot <- bind_rows(rowid_to_column(res1),
+                      rowid_to_column(res2),
+                      rowid_to_column(res3)) %>% 
+    nest(nest_data = -rowid) %>% 
+    unnest_wider(nest_data) %>% 
+    select(-rowid)
+  
+  return(ResTot)
+}
+
+
+
+
+
+
+

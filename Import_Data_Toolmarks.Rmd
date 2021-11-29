@@ -15,7 +15,7 @@ source("Packages_and_Functions.R")
 # Import
 
 ```{r Import Data}
-ResToolMarks <- ImportToolmarksData("AllProfiles/")
+ResToolMarks <- ImportToolmarksData("AllProfiles4015/")
 ```
 
 # Select and plot cases of interest
@@ -34,7 +34,7 @@ To plot a chosen profile.
 
 ```{r plot}
 a <- Extract_One_profile(Selection1,1)
-b <- Extract_One_profile(Selection1,5)
+b <- Extract_One_profile(Selection1,4)
 
 p1 <- Plot_profile(a)
 p2 <- Plot_profile(b)

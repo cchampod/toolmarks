@@ -25,7 +25,7 @@ Then using dplyr() grammar, it is very easy to do selection of marks of interest
 ```{r Selection}
 
 Selection1 <- ResToolMarks %>%
-  filter(Tool == "K1" & Zone == 1 & Side == "A1")
+  dplyr::filter(Tool == "K1" & Zone == 1 & Side == "A1")
 
 View(Selection1)
 ```

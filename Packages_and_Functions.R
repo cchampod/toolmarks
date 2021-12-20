@@ -12,8 +12,17 @@ library(dtwclust)
 library(TSclust)
 library(ggdendro)
 library(dendextend)
-library(warbleR) #pour certaines correlations
+library(warbleR) #pour some correlations
 library(correlation)
+library(writexl) #export as excel file
+library(fitdistrplus)#fit distribution 
+library(logspline)
+library(gtools)#compute permutation table
+library(plyr) 
+library(writexl)
+library(fitdistrplus)
+library(logspline)
+#library(conflicted)
 
 #The function below will read all .txt files 
 #in a folder and prepare a dataframe with the relevant information.
@@ -116,7 +125,7 @@ Aligned_scores <- function(Selection, table){
   res <- CCF_all(Selection,table)
   res$ndtw <- NA
   res$rdist <- NA
-  res$Uscore <- NA
+  #res$Uscore <- NA
   nProfile <- nrow(table) 
   
   for(i in 1:nProfile){
@@ -127,24 +136,28 @@ Aligned_scores <- function(Selection, table){
       a2 <- head(a,-abs(Lag))
       b2 <- tail(b,-abs(Lag))
     }
-    else {
+    else if (Lag>0) {
       a2 <- tail(a,-Lag)
       b2 <- head(b,-Lag)
+    }
+    else { #if the lag is 0
+      a2 <- a
+      b2 <- b
     }
     NDTW <- ndtw(a2,b2) #get ndtw score into DF
     Rdist <- reldist(a2,b2) #get relativedistance frome bachrach in DF
     res[i,4] <- NDTW
     res[i,5] <- Rdist
     
-    am <- as.matrix(a2)
-    bm <- as.matrix(b2)
-    cnr <- chumbley_non_random(am,bm,window_val = 25,coarse = 0.07) #get Chumbley U stat into DF
-    res[i,6] <- cnr$U
+   # am <- as.matrix(a2)
+    #bm <- as.matrix(b2)
+   # cnr <- chumbley_non_random(am,bm,window_val = 25,coarse = 0.07) #get Chumbley U stat into DF
+   # res[i,6] <- cnr$U
   }
   return(res)
 }
 
-#To compute a DF with cut aligned profiles, can be used for single computation of similarity measures
+#To retrieve a DF with cut aligned profiles, can be used for single computation of similarity measures
 CutPDF <- function(Selection, table){
   nProfile <- nrow(table)
   Cut_P <-  data.frame(matrix(NA,nrow=nProfile,ncol=2)) #create Df for cut profiles
@@ -187,8 +200,7 @@ ndtw <- function(x, y, ...) {
   dtw(x, y, ...,
       step.pattern = asymmetric,
       open.end = TRUE,
-      open.begin = TRUE,
-      distance.only = TRUE)$normalizedDistance
+      open.begin = TRUE)$normalizedDistance
 }
 
 #To compute ndtw separately on the batch with aligned profiles
@@ -221,7 +233,6 @@ batch_reldist <- function(Selection,table){
   return(rdist)
 }
 
-
 #To compute Aligned_scores for multiple Selection like different ROIs and put it in one dataframe
 Comb_ROI <- function(Selection1, Selection2, Selection3,table){
   res1 <- Aligned_scores(Selection1,table)
@@ -238,9 +249,118 @@ Comb_ROI <- function(Selection1, Selection2, Selection3,table){
   return(ResTot)
 }
 
+#To compute the mean of scores from Aligned_scores with within and between variabilities, here for the correlation but
+Mean_calc <- function(Res){
+  
+  Mean_DF <-  data.frame(matrix(NA,ncol=6))
+  colnames(Mean_DF) <- c("intraZ1","intraZ2","intraZ3","interZ1Z2","interZ1Z3","interZ2Z3")
+  M_intraZ1 <- mean(c(Res$corr[1:9],Res$corr[30:37],Res$corr[58:64],Res$corr[85:90],Res$corr[111:115],Res$corr[136:139],Res$corr[160:162],Res$corr[183:184],Res$corr[205]))
+  M_intraZ2 <- mean(c(Res$corr[246:254],Res$corr[265:272],Res$corr[283:289],Res$corr[300:305],Res$corr[316:320],Res$corr[331:334],Res$corr[345:347],Res$corr[358:359],Res$corr[370]))
+  M_intraZ3 <- mean(c(Res$corr[391-435]))
+  M_interZ1Z2 <- mean(c(Res$corr[10:19],Res$corr[38:47],Res$corr[65:74],Res$corr[91:100],Res$corr[116:125],Res$corr[140:149],Res$corr[163:172],Res$corr[185:194],Res$corr[206:215],Res$corr[226:235]))
+  M_interZ1Z3 <- mean(c(Res$corr[20:29],Res$corr[48:57],Res$corr[75:84],Res$corr[101:110],Res$corr[126:135],Res$corr[150:159],Res$corr[173:182],Res$corr[195:204],Res$corr[216:225],Res$corr[236:245]))
+  M_interZ2Z3 <- mean(c(Res$corr[255:264],Res$corr[273:282],Res$corr[290:299],Res$corr[306:315],Res$corr[321:330],Res$corr[335:344],Res$corr[348:357],Res$corr[360:369],Res$corr[371:390]))
+  
+  Mean_DF$intraZ1[1] <- M_intraZ1
+  Mean_DF$intraZ2[1] <- M_intraZ2
+  Mean_DF$intraZ3[1] <- M_intraZ3
+  Mean_DF$interZ1Z2[1] <- M_interZ1Z2
+  Mean_DF$interZ1Z3[1] <- M_interZ1Z3
+  Mean_DF$interZ2Z3[1] <- M_interZ2Z3
+  
+  return(Mean_DF)
+
+}
+
+#computes the CCF and extracts the lag between two different tools
+CCF_all_IP <- function(Selection_A,Selection_B, table){
+  nProfile <- nrow(table)
+  res <-  data.frame(matrix(NA,nrow=nProfile,ncol=3))
+  for(i in 1:nProfile) {
+    a <- unlist(Selection_A$y[table[i,1]])
+    b <- unlist(Selection_B$y[table[i,2]])
+    nameComp <- paste(Selection_A$File[table[i,1]],"vs.",Selection_B$File[table[i,2]])
+    ccf <- CCF(a, b)
+    res[i,1] <- nameComp
+    res[i,2:3] <- ccf
+  }
+  colnames(res) <- c("nameComp", "lag", "corr")
+  return(res)
+}
+
+#To align profiles and compute other metrics using aligned profiles on different tools
+Aligned_scores_IP <- function(Selection_A,Selection_B, table){
+  res <- CCF_all_IP(Selection_A, Selection_B,table)
+  res$ndtw <- NA
+  res$rdist <- NA
+  #res$Uscore <- NA
+  nProfile <- nrow(table) 
+  
+  for(i in 1:nProfile){
+    a <- unlist(Selection_A$y[table[i,1]])
+    b <- unlist(Selection_B$y[table[i,2]])
+    Lag <- res$lag[i]  #ici ce sera test 
+    if (Lag<0) {
+      a2 <- head(a,-abs(Lag))
+      b2 <- tail(b,-abs(Lag))
+    }
+    else if (Lag>0) {
+      a2 <- tail(a,-Lag)
+      b2 <- head(b,-Lag)
+    }
+    else { #if the lag is 0
+      a2 <- a
+      b2 <- b
+    }
+    NDTW <- ndtw(a2,b2) #get ndtw score into DF
+    Rdist <- reldist(a2,b2) #get relativedistance frome bachrach in DF
+    res[i,4] <- NDTW
+    res[i,5] <- Rdist
+    
+    # am <- as.matrix(a2)
+    #bm <- as.matrix(b2)
+    # cnr <- chumbley_non_random(am,bm,window_val = 25,coarse = 0.07) #get Chumbley U stat into DF
+    # res[i,6] <- cnr$U
+  }
+  return(res)
+}
+
+#To retrieve the within and between variability score separatly
+WB_var <- function(Resultat){
+NAMES <- Resultat[["nameComp"]]
+intra_Z1 <- data.frame(nameComp = character(), lag = double(), corr = double(), ndtw = double, rdist = double())
+intra_Z2 <- data.frame(nameComp = character(), lag = double(), corr = double(), ndtw = double, rdist = double())
+intra_Z3 <- data.frame(nameComp = character(), lag = double(), corr = double(), ndtw = double, rdist = double())
+inter_Z1Z2 <- data.frame(nameComp = character(), lag = double(), corr = double(), ndtw = double, rdist = double())
+inter_Z2Z3 <- data.frame(nameComp = character(), lag = double(), corr = double(), ndtw = double, rdist = double())
+inter_Z1Z3 <- data.frame(nameComp = character(), lag = double(), corr = double(), ndtw = double, rdist = double())
+for (i in 1:3) {
+  for (name in NAMES){
+    if ((substr(name,4,4)==i) & (substr(name,24,24)==i)){
+      if (i == 1){
+        intra_Z1 <- rbind(intra_Z1, filter(Resultat, nameComp == name))
+      }
+      if (i == 2){
+        intra_Z2 <- rbind(intra_Z2, filter(Resultat, nameComp == name))
+      }
+      if (i == 3){
+        intra_Z3 <- rbind(intra_Z2, filter(Resultat, nameComp == name))
+      }
+    }
+  }
+}
 
 
-
-
-
-
+for (name in NAMES){
+  if (((substr(name,4,4) == 1) & (substr(name,24,24)== 2)))
+    inter_Z1Z2 <- rbind(inter_Z1Z2, filter(Resultat, nameComp == name))
+  
+  if (((substr(name,4,4) == 1) & (substr(name,24,24)== 3)))
+    inter_Z1Z3 <- rbind(inter_Z1Z3, filter(Resultat, nameComp == name))
+  
+  if (((substr(name,4,4) == 2) & (substr(name,24,24)== 3)))
+    inter_Z2Z3 <- rbind(inter_Z2Z3, filter(Resultat, nameComp == name))
+}
+DF <-rbind(intra_Z1,intra_Z2, intra_Z3,inter_Z1Z2, inter_Z2Z3, inter_Z1Z3)
+return(DF)
+}

@@ -9,6 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 source("Packages_and_Functions.R")
+
 ```
 
 ## R Markdown
@@ -26,18 +27,30 @@ ResToolMarks <- readRDS("ResToolMarks.Rds")
 ```{r  Select data}
 #Creates a selection of toolmarks based on the file names
 
-Selection1 <- K1_Z1_A1_ROI1 <- ResToolMarks %>%
-  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 1) %>% select(File,y)
+Selection1  <- ResToolMarks %>%
+  dplyr::filter(Tool == "K2" & Side == "A1" & ROI == 1 ) %>% dplyr::select(File,y) #forces R to use select function from dplyr package
 
-Selection2 <- K1_Z1_A1_ROI2 <- ResToolMarks %>%
-  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 2) %>% select(File,y)
+Selection2  <- ResToolMarks %>%
+  dplyr::filter(Tool == "K2" & Side == "A1" & ROI == 2 ) %>% dplyr::select(File,y)
 
-Selection3 <- K1_Z1_A1_ROI3 <- ResToolMarks %>%
-  filter(Tool == "K1" & Zone == 1 & Side == "A1" & ROI == 3) %>% select(File,y)
+Selection3  <- ResToolMarks %>%
+  dplyr::filter(Tool == "K2" & Side == "A1" & ROI == 3 ) %>% dplyr::select(File,y)
+
+Selection4  <- ResToolMarks %>%
+  dplyr::filter(Tool == "K1" & Side == "A2" & ROI == 1 ) %>% dplyr::select(File,y) 
+
+Selection5  <- ResToolMarks %>%
+  dplyr::filter(Tool == "K1" & Side == "A2" & ROI == 2 ) %>% dplyr::select(File,y)
+
+Selection6  <- ResToolMarks %>%
+  dplyr::filter(Tool == "K1" & Side == "A2" & ROI == 3 ) %>% dplyr::select(File,y)
 
 #create a table of all possible combination without any repetitions
 
-Comb_table <- as.data.frame(t(combn(length(Selection1$y),2)))
+Comb_table <- as.data.frame(t(combn(length(Selection2$y),2))) #combination table without repetitions for auto and inter of a simgle tool
+
+Perm_table <- as.data.frame(permutations(length(Selection1$y),2, repeats.allowed = TRUE )) #permutation table with repetitions for comparison between two tools
+
 ```
 
 
@@ -48,17 +61,45 @@ Comb_table <- as.data.frame(t(combn(length(Selection1$y),2)))
 # CutPDF enables the examiner to extract aligned profiles
 # batch_ndtw and batch_reldist enables to compute one metric at a time
 
-Res1 <- Aligned_scores(Selection1,Comb_table)
+
+Res1 <- Aligned_scores(Selection1,Comb_table) #computes 3 scores for within variability of a single tool
 Res2 <- Aligned_scores(Selection2,Comb_table)
 Res3 <- Aligned_scores(Selection3,Comb_table)
+Res4 <- Aligned_scores(Selection4,Comb_table)
+Res5 <- Aligned_scores(Selection5,Comb_table)
+Res6 <- Aligned_scores(Selection6,Comb_table)
 
 
-Res1_rdist <- batch_reldist(Selection1,Comb_table)
-
-ResT <- Comb_ROI(Selection1,Selection2,Selection3,Comb_table)
+MCA1_ROI1 <- Mean_calc(Res1) #computes mean scores for within and between variabilities of Zones of a single tool
 
 
+ResK1K2bis <- Aligned_scores_IP(Selection1,Selection2, Perm_table) #computes 3 scores between two tools
 
+ROI1 <- WB_var(Res1) #retrieves scores from within and between variabilities of zones of a single tool and merges them vertically
+ROI2 <- WB_var(Res2)
+ROI3 <- WB_var(Res3)
+
+write_xlsx(ResA2, "C:\\Users\\jpatteet\\Desktop\\ResA2.xlsx") #transforms a dataframe into an excel file
+
+```
+
+
+```{r Plotting distributions}
+
+DFA2 <-rbind(ROI1,ROI2,ROI3)
+
+#adding a column with lettres W for within and B for between to the plot the distributions
+DFA1$Var <- c(rep(c("W1"), times=45),rep(c("W2"), times=45),rep(c("W3"), times=46),rep(c("B1"),times=100),rep(c("B2"),times=100),rep(c("B3"),times=100))
+DFA2$Var <- c(rep(c("W"), times=136),rep(c("B"), times=300),rep(c("W"), times=136),rep(c("B"), times=300),rep(c("W"), times=136),rep(c("B"), times=300))
+
+ggplot(DFA2,aes(x=rdist,color=Var))+geom_density()
+
+
+descdist(Res3$rdist, discrete = FALSE, boot=1000) #indicates which type of distribution the date follows
+
+
+ fit.beta <- fitdist(as.vector(intra_Z1$rdist), "beta") #plot beta distribution (exists also weibull,norm)
+ plot(fit.beta)
 
 
 ```

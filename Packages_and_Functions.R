@@ -22,6 +22,7 @@ library(plyr)
 library(writexl)
 library(fitdistrplus)
 library(logspline)
+library(manipulate)
 #library(conflicted)
 
 #The function below will read all .txt files 
@@ -91,38 +92,73 @@ Plot_profile <- function(Profile){
     ggtitle(comment(Profile))
   p1
 }
-
+   
 #To compute CCF and extract the max score and the corresponding lag
 CCF <- function(a,b, ratio=3){
-  cv <- ccf(a,b, lag.max = round(length(a)/ratio,0))
+  cv <- ccf(a,b, lag.max = round(length(a)/ratio,0), plot= FALSE)
   sco <- cv$acf
   lag <- cv$lag
   res <-  data.frame(sco,lag)
   lag_max <-  res[which.max(res$sco),]$lag
   sco_max <- max(sco)
   output <- c(lag_max,sco_max)
-  return(output)
+  NAs <-  rep(NA,abs(lag_max))
+  #creating lagged profiles by adding NA values to plot them
+    if (lag_max<0) {
+      A_new <- append(NAs,a)
+      B_new <- append(b,NAs)
+      
+    }
+    else if (lag_max>0) {
+      A_new <- append(a,NAs)
+      B_new <- append(NAs,b)
+    
+    }
+    else { #if the lag is 0
+      A_new <- a
+      B_new <- b }
+  #changing into dataframe in order to plot
+  a_df <- as.data.frame(cbind(c(1:length(A_new)),A_new))
+  b_df <- as.data.frame(cbind(c(1:length(B_new)),B_new))
+  #plotting
+  P_align <- ggplot() + 
+    geom_line(data=a_df,aes(x=V1,y=A_new), colour="red") +
+    geom_line(data=b_df,aes(x=V1,y=B_new), colour="blue")+
+    ggtitle("Profil a vs Profil b")
+  
+  #return(P_align)
+  return(list(P_align,output))
 }
 
 #To compute CCF scores in batches creating a dataframe of all scores and lags
 CCF_all <- function(Selection, table){
   nProfile <- nrow(table)
+  allplots <- vector(mode="list", length=nProfile)
   res <-  data.frame(matrix(NA,nrow=nProfile,ncol=3))
   for(i in 1:nProfile) {
     a <- unlist(Selection$y[table[i,1]])
     b <- unlist(Selection$y[table[i,2]])
     nameComp <- paste(Selection$File[table[i,1]],"vs.",Selection$File[table[i,2]])
-    ccf <- CCF(a, b)
+   
+    ccf <- CCF(a, b)[[2]] #only takes element number two which is a dataframe of lag and corr values
     res[i,1] <- nameComp
     res[i,2:3] <- ccf
-  }
+    
+    #extracting the plot and changing the title indicating profiles compared
+    allplots[[i]] <- CCF(a,b)[[1]]
+    allplots[[i]]$labels[1] <- paste(substr(Selection$File[table[i,1]],1,11), "vs",substr(Selection$File[table[i,2]],1,11))
+    allplots[[i]]$labels[2] <- ""
+    allplots[[i]]$labels[3] <- "depth"
+    
+    }
   colnames(res) <- c("nameComp", "lag", "corr")
-  return(res)
+  return(list(allplots,res)) #returns a list of two elements, the first one has all the plots, sencond one is score dataframe
 }
 
 #To align profiles and compute other metrics using aligned profiles
 Aligned_scores <- function(Selection, table){
-  res <- CCF_all(Selection,table)
+  res <- CCF_all(Selection,table)[[2]]
+  allplots <- CCF_all(Selection,table)[[1]]
   res$ndtw <- NA
   res$rdist <- NA
   #res$Uscore <- NA
@@ -154,7 +190,7 @@ Aligned_scores <- function(Selection, table){
    # cnr <- chumbley_non_random(am,bm,window_val = 25,coarse = 0.07) #get Chumbley U stat into DF
    # res[i,6] <- cnr$U
   }
-  return(res)
+  return(list(allplots,res))
 }
 
 #To retrieve a DF with cut aligned profiles, can be used for single computation of similarity measures
@@ -364,3 +400,5 @@ for (name in NAMES){
 DF <-rbind(intra_Z1,intra_Z2, intra_Z3,inter_Z1Z2, inter_Z2Z3, inter_Z1Z3)
 return(DF)
 }
+
+

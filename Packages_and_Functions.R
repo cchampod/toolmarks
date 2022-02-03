@@ -23,6 +23,7 @@ library(writexl)
 library(fitdistrplus)
 library(logspline)
 library(manipulate)
+library(multipanelfigure)
 #library(conflicted)
 
 #The function below will read all .txt files 
@@ -122,8 +123,8 @@ CCF <- function(a,b, ratio=3){
   b_df <- as.data.frame(cbind(c(1:length(B_new)),B_new))
   #plotting
   P_align <- ggplot() + 
-    geom_line(data=a_df,aes(x=V1,y=A_new), colour="red") +
-    geom_line(data=b_df,aes(x=V1,y=B_new), colour="blue")+
+    geom_line(data=a_df,aes(x=V1,y=A_new), colour="red") + #premier profil (la base)
+    geom_line(data=b_df,aes(x=V1,y=B_new), colour="blue")+ #profil en mouvement
     ggtitle("Profil a vs Profil b")
   
   #return(P_align)
@@ -146,7 +147,10 @@ CCF_all <- function(Selection, table){
     
     #extracting the plot and changing the title indicating profiles compared
     allplots[[i]] <- CCF(a,b)[[1]]
-    allplots[[i]]$labels[1] <- paste(substr(Selection$File[table[i,1]],1,11), "vs",substr(Selection$File[table[i,2]],1,11))
+    allplots[[i]]$labels[1] <- paste(substr(Selection$File[table[i,1]],1,11),
+                                     "vs",substr(Selection$File[table[i,2]],1,11), 
+                                     "   Lag = ", res[i,2],"     score = ",
+                                     res[i,3])
     allplots[[i]]$labels[2] <- ""
     allplots[[i]]$labels[3] <- "depth"
     
@@ -198,7 +202,7 @@ CutPDF <- function(Selection, table){
   nProfile <- nrow(table)
   Cut_P <-  data.frame(matrix(NA,nrow=nProfile,ncol=2)) #create Df for cut profiles
   colnames(Cut_P) <- c("a2", "b2")
-  Lags <- CCF_all(Selection,table)
+  Lags <- CCF_all(Selection,table)[[2]]
   for(i in 1:nProfile){
     a <- unlist(Selection$y[table[i,1]])
     b <- unlist(Selection$y[table[i,2]])
@@ -271,16 +275,18 @@ batch_reldist <- function(Selection,table){
 
 #To compute Aligned_scores for multiple Selection like different ROIs and put it in one dataframe
 Comb_ROI <- function(Selection1, Selection2, Selection3,table){
-  res1 <- Aligned_scores(Selection1,table)
-  res2 <- Aligned_scores(Selection2,table)
-  res3 <- Aligned_scores(Selection3,table)
+  res1 <- Aligned_scores(Selection1,table)[[2]]
+  res2 <- Aligned_scores(Selection2,table)[[2]]
+  res3 <- Aligned_scores(Selection3,table)[[2]]
   
   ResTot <- bind_rows(rowid_to_column(res1),
                       rowid_to_column(res2),
                       rowid_to_column(res3)) %>% 
+    group_by(rowid) %>%
     nest(nest_data = -rowid) %>% 
     unnest_wider(nest_data) %>% 
-    select(-rowid)
+    ungroup() %>% 
+    dplyr::select(-rowid)
   
   return(ResTot)
 }
@@ -311,22 +317,33 @@ Mean_calc <- function(Res){
 #computes the CCF and extracts the lag between two different tools
 CCF_all_IP <- function(Selection_A,Selection_B, table){
   nProfile <- nrow(table)
+  allplots <- vector(mode="list", length=nProfile)
   res <-  data.frame(matrix(NA,nrow=nProfile,ncol=3))
   for(i in 1:nProfile) {
     a <- unlist(Selection_A$y[table[i,1]])
     b <- unlist(Selection_B$y[table[i,2]])
     nameComp <- paste(Selection_A$File[table[i,1]],"vs.",Selection_B$File[table[i,2]])
-    ccf <- CCF(a, b)
+    ccf <- CCF(a, b)[[2]]
     res[i,1] <- nameComp
     res[i,2:3] <- ccf
+    
+    allplots[[i]] <- CCF(a,b)[[1]]
+    allplots[[i]]$labels[1] <- paste(substr(Selection_A$File[table[i,1]],1,11),
+                                     "vs",substr(Selection_B$File[table[i,2]],1,11), 
+                                     "   Lag = ", res[i,2],"     score = ",
+                                     res[i,3])
+    allplots[[i]]$labels[2] <- ""
+    allplots[[i]]$labels[3] <- "depth"
+    
   }
   colnames(res) <- c("nameComp", "lag", "corr")
-  return(res)
+  return(list(allplots,res))
 }
 
 #To align profiles and compute other metrics using aligned profiles on different tools
 Aligned_scores_IP <- function(Selection_A,Selection_B, table){
-  res <- CCF_all_IP(Selection_A, Selection_B,table)
+  res <- CCF_all_IP(Selection_A, Selection_B,table)[[2]]
+  allplots <- CCF_all_IP(Selection_A,Selection_B, table)[[1]]
   res$ndtw <- NA
   res$rdist <- NA
   #res$Uscore <- NA
@@ -358,7 +375,7 @@ Aligned_scores_IP <- function(Selection_A,Selection_B, table){
     # cnr <- chumbley_non_random(am,bm,window_val = 25,coarse = 0.07) #get Chumbley U stat into DF
     # res[i,6] <- cnr$U
   }
-  return(res)
+  return(list(allplots,res))
 }
 
 #To retrieve the within and between variability score separatly
@@ -375,30 +392,103 @@ for (i in 1:3) {
     if ((substr(name,4,4)==i) & (substr(name,24,24)==i)){
       if (i == 1){
         intra_Z1 <- rbind(intra_Z1, filter(Resultat, nameComp == name))
+        
+        
       }
       if (i == 2){
         intra_Z2 <- rbind(intra_Z2, filter(Resultat, nameComp == name))
+       
       }
       if (i == 3){
-        intra_Z3 <- rbind(intra_Z2, filter(Resultat, nameComp == name))
+        intra_Z3 <- rbind(intra_Z3, filter(Resultat, nameComp == name))
+        
       }
     }
   }
 }
 
+intra_Z1$VarROI <- c(rep(c("W1"), times=length(intra_Z1$corr)))
+intra_Z1$Var <- c(rep(c("W"), times=length(intra_Z1$corr)))
+intra_Z2$VarROI <- c(rep(c("W2"), times=length(intra_Z2$corr)))
+intra_Z2$Var <- c(rep(c("W"), times=length(intra_Z2$corr)))
+intra_Z3$VarROI <- c(rep(c("W3"), times=length(intra_Z3$corr)))
+intra_Z3$Var <- c(rep(c("W"), times=length(intra_Z3$corr)))
 
 for (name in NAMES){
   if (((substr(name,4,4) == 1) & (substr(name,24,24)== 2)))
     inter_Z1Z2 <- rbind(inter_Z1Z2, filter(Resultat, nameComp == name))
+    
   
   if (((substr(name,4,4) == 1) & (substr(name,24,24)== 3)))
     inter_Z1Z3 <- rbind(inter_Z1Z3, filter(Resultat, nameComp == name))
-  
+    
   if (((substr(name,4,4) == 2) & (substr(name,24,24)== 3)))
     inter_Z2Z3 <- rbind(inter_Z2Z3, filter(Resultat, nameComp == name))
+    
 }
-DF <-rbind(intra_Z1,intra_Z2, intra_Z3,inter_Z1Z2, inter_Z2Z3, inter_Z1Z3)
+
+inter_Z1Z2$VarROI <- c(rep(c("B1"), times=length(inter_Z1Z2$corr)))
+inter_Z1Z2$Var <- c(rep(c("B"), times=length(inter_Z1Z2$corr)))
+inter_Z1Z3$VarROI <- c(rep(c("B2"), times=length(inter_Z1Z3$corr)))
+inter_Z1Z3$Var <- c(rep(c("B"), times=length(inter_Z1Z3$corr)))
+inter_Z2Z3$VarROI <- c(rep(c("B3"), times=length(inter_Z2Z3$corr)))
+inter_Z2Z3$Var <- c(rep(c("B"), times=length(inter_Z2Z3$corr)))
+
+  DF <-rbind(intra_Z1,intra_Z2, intra_Z3,inter_Z1Z2, inter_Z1Z3, inter_Z2Z3)
 return(DF)
 }
 
+# This function plots within and between variability distributions for a single tool
+Distrib <- function(Selection1, Selection2,Selection3,table){
+  Res1 <- Aligned_scores(Selection1,table)[[2]]
+  Res2 <- Aligned_scores(Selection2,table)[[2]]
+  Res3 <- Aligned_scores(Selection3,table)[[2]]
+  
+  ROI1 <- WB_var(Res1) 
+  ROI2 <- WB_var(Res2)
+  ROI3 <- WB_var(Res3) 
+  
+  DFA <-rbind(ROI1,ROI2,ROI3)
+  
+  q1 <- ggplot(DFA,aes(x=corr,color=Var))+geom_density()
+  q2 <- ggplot(DFA,aes(x=rdist,color=Var))+geom_density()
+  q3 <- ggplot(DFA,aes(x=ndtw,color=Var))+geom_density()
+  q4 <- ggplot(DFA,aes(x=corr,color=VarROI))+geom_density()
+  q5 <- ggplot(DFA,aes(x=rdist,color=VarROI))+geom_density()
+  q6 <- ggplot(DFA,aes(x=ndtw,color=VarROI))+geom_density()
+  
+  
+  figure <- multi_panel_figure(columns = 3, rows = 2, panel_label_type = "none")
+  
+  figure %<>%
+    fill_panel(q1, column = 1, row = 1) %<>%
+    fill_panel(q2, column = 2, row = 1) %<>%
+    fill_panel(q3, column = 3, row = 1) %<>%
+    fill_panel(q4, column = 1, row = 2) %<>%
+    fill_panel(q5, column = 2, row = 2) %<>%
+    fill_panel(q6, column = 3, row = 2)
+  
+  return(figure)
+}
+
+
+
+Plot_HeatMap <- function(Res,table){ 
+  Res <- Res[[2]]$corr
+  HM_df <- cbind(table,Res)
+  
+ P <-  ggplot(data = HM_df, aes(V2, V1, fill = Res))+  
+   geom_tile(color = "white", size=0.2)+
+   scale_x_discrete(limits=factor(c(1:max(table$V2))))+
+   scale_y_discrete(limits=factor(c(1:max(table$V2))))+
+   scale_fill_gradient2(low = "yellow", high = "red", mid = "orange", 
+                        midpoint = mean(Res),limit = c(min(Res),max(Res)), space = "Lab",
+                        name="Scores") +
+   theme(panel.grid = element_blank())+
+   labs(title= "Heatmap scores", 
+        x= "",
+        y= "")
+  
+  return(P)
+}
 

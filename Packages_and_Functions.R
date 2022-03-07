@@ -24,6 +24,8 @@ library(fitdistrplus)
 library(logspline)
 library(manipulate)
 library(multipanelfigure)
+library(philentropy)
+library(TSdist)
 #library(conflicted)
 
 #The function below will read all .txt files 
@@ -132,7 +134,8 @@ CCF <- function(a,b, ratio=3){
 }
 
 #To compute CCF scores in batches creating a dataframe of all scores and lags
-CCF_all <- function(Selection, table){
+CCF_all <- function(Selection){
+  table <- as.data.frame(t(combn(length(Selection$y),2)))
   nProfile <- nrow(table)
   allplots <- vector(mode="list", length=nProfile)
   res <-  data.frame(matrix(NA,nrow=nProfile,ncol=3))
@@ -160,12 +163,15 @@ CCF_all <- function(Selection, table){
 }
 
 #To align profiles and compute other metrics using aligned profiles
-Aligned_scores <- function(Selection, table){
-  res <- CCF_all(Selection,table)[[2]]
-  allplots <- CCF_all(Selection,table)[[1]]
+Aligned_scores <- function(Selection){
+  res <- CCF_all(Selection)[[2]]
+  allplots <- CCF_all(Selection)[[1]]
   res$ndtw <- NA
   res$rdist <- NA
+  res$CCF2 <- NA
+  res$CCorr <- NA
   #res$Uscore <- NA
+  table <- as.data.frame(t(combn(length(Selection$y),2)))
   nProfile <- nrow(table) 
   
   for(i in 1:nProfile){
@@ -184,10 +190,15 @@ Aligned_scores <- function(Selection, table){
       a2 <- a
       b2 <- b
     }
+   # Edist <- dist()
+    CCF2 <- max(ccf(a2,b2)$acf)
+    CCor <- CCorDistance(a,b,lag.max=100)
     NDTW <- ndtw(a2,b2) #get ndtw score into DF
     Rdist <- reldist(a2,b2) #get relativedistance frome bachrach in DF
     res[i,4] <- NDTW
     res[i,5] <- Rdist
+    res[i,6] <- CCF2
+    res[i,7] <- CCor
     
    # am <- as.matrix(a2)
     #bm <- as.matrix(b2)
@@ -196,13 +207,49 @@ Aligned_scores <- function(Selection, table){
   }
   return(list(allplots,res))
 }
+#Computes CCFs along aligned profiles with a chosen window size and computes the ratio of scores above a threshold
+#it also computes the average of scores above threshold
+Step_comp <- function(Selection,step,threshold){
+  Cut_P <- CutPDF(Selection)
+  res <-  data.frame(matrix(NA,nrow=length(Cut_P$a2),ncol=2))
+  
+for (i in 1:length(Cut_P$a2)){ 
+  count <- 0
+  TOTCCF <- 0
+  for (j in 0:((floor(length(Cut_P$a2[[i]])/step)))) {
+    deb <- step*j
+    fin <- step+(step*j)
+    if (fin < length(Cut_P$a2[[i]])){
+    a2 <- Cut_P$a2[[i]][deb:fin]
+    b2 <- Cut_P$b2[[i]][deb:fin]
+    CCF <- max(ccf(a2,b2, plot=FALSE)$acf)
+    
+  
+      if (CCF>threshold){
+        count <- count+1
+        TOTCCF <- TOTCCF +CCF
+      }
+      else{
+        count <- count
+      }
+  }}
+  ratio <- count/(length(Cut_P$a2[[1]])/step)
+  Tot <- TOTCCF/count
+  res[i,1] <- ratio
+  res[i,2] <- Tot
+  }
+    
+  return(res)
+}
+
 
 #To retrieve a DF with cut aligned profiles, can be used for single computation of similarity measures
-CutPDF <- function(Selection, table){
+CutPDF <- function(Selection){
+  table <- as.data.frame(t(combn(length(Selection$y),2)))
   nProfile <- nrow(table)
   Cut_P <-  data.frame(matrix(NA,nrow=nProfile,ncol=2)) #create Df for cut profiles
   colnames(Cut_P) <- c("a2", "b2")
-  Lags <- CCF_all(Selection,table)[[2]]
+  Lags <- CCF_all(Selection)[[2]]
   for(i in 1:nProfile){
     a <- unlist(Selection$y[table[i,1]])
     b <- unlist(Selection$y[table[i,2]])
@@ -244,11 +291,12 @@ ndtw <- function(x, y, ...) {
 }
 
 #To compute ndtw separately on the batch with aligned profiles
-batch_ndtw <- function(Selection,table){
+batch_ndtw <- function(Selection){
+  table <- as.data.frame(t(combn(length(Selection$y),2)))
   nProfile <- nrow(table)
   NDTW <- data.frame(matrix(NA,nrow=nProfile,ncol=1))
   colnames(NDTW) <- c("Ndtw")
-  Cut_P <- CutPDF(Selection,table)
+  Cut_P <- CutPDF(Selection)
   for(i in 1:nProfile){
     a2i <- unlist(Cut_P$a2[i])
     b2i <- unlist(Cut_P$b2[i])
@@ -259,11 +307,12 @@ batch_ndtw <- function(Selection,table){
 }
 
 #To compute reldist separately on the batch with aligned profiles
-batch_reldist <- function(Selection,table){
+batch_reldist <- function(Selection){
+  table <- as.data.frame(t(combn(length(Selection$y),2)))
   nProfile <- nrow(table)
   rdist <- data.frame(matrix(NA,nrow=nProfile,ncol=1))
   colnames(rdist) <- c("Rdist")
-  Cut_P <- CutPDF(Selection,table)
+  Cut_P <- CutPDF(Selection)
   for(i in 1:nProfile){
     a2i <- unlist(Cut_P$a2[i])
     b2i <- unlist(Cut_P$b2[i])
@@ -274,10 +323,11 @@ batch_reldist <- function(Selection,table){
 }
 
 #To compute Aligned_scores for multiple Selection like different ROIs and put it in one dataframe
-Comb_ROI <- function(Selection1, Selection2, Selection3,table){
-  res1 <- Aligned_scores(Selection1,table)[[2]]
-  res2 <- Aligned_scores(Selection2,table)[[2]]
-  res3 <- Aligned_scores(Selection3,table)[[2]]
+Comb_ROI <- function(Selection1, Selection2, Selection3){
+  table <- as.data.frame(t(combn(length(Selection1$y),2)))
+  res1 <- Aligned_scores(Selection1)[[2]]
+  res2 <- Aligned_scores(Selection2)[[2]]
+  res3 <- Aligned_scores(Selection3)[[2]]
   
   ResTot <- bind_rows(rowid_to_column(res1),
                       rowid_to_column(res2),
@@ -314,8 +364,73 @@ Mean_calc <- function(Res){
 
 }
 
+#same as CutPDF but between two selections
+CutPDF_IP <- function(Selection_A, Selection_B){
+  table <- as.data.frame(permutations(length(Selection_A$y),2, repeats.allowed = TRUE ))
+  nProfile <- nrow(table)
+  Cut_P <-  data.frame(matrix(NA,nrow=nProfile,ncol=2)) #create Df for cut profiles
+  colnames(Cut_P) <- c("a2", "b2")
+  Lags <- CCF_all_IP(Selection_A,Selection_B)[[2]]
+  for(i in 1:nProfile){
+    a <- unlist(Selection_A$y[table[i,1]])
+    b <- unlist(Selection_B$y[table[i,2]])
+    Lag <- Lags$lag[i]  
+    if (Lag<0) {
+      a2 <- head(a,-abs(Lag))
+      b2 <- tail(b,-abs(Lag))
+    }
+    else {
+      a2 <- tail(a,-Lag)
+      b2 <- head(b,-Lag)
+    }
+    a2_l <- list(a2)
+    b2_l <- list(b2)
+    Cut_P$a2[i] <- a2_l #copy cut profile into dataframe cell 1stcol
+    Cut_P$b2[i] <- b2_l #copy cut profile into dataframe cell 2ndcol
+  }
+  
+  return(Cut_P)
+}
+
+#Computes CCFs along aligned profiles with a chosen window size and computes the ratio of scores above a threshold
+#it also computes the average of scores above threshold
+#Here between 2 selections
+Step_comp_IP <- function(Selection_a, Selection_B,step,threshold){
+  Cut_P <- CutPDF_IP(Selection_a,Selection_B)
+  res <-  data.frame(matrix(NA,nrow=length(Cut_P$a2),ncol=2))
+  
+  for (i in 1:length(Cut_P$a2)){ 
+    count <- 0
+    TOTCCF <- 0
+    for (j in 0:((floor(length(Cut_P$a2[[i]])/step)))) {
+      deb <- step*j
+      fin <- step+(step*j)
+      if (fin < length(Cut_P$a2[[i]])){
+        a2 <- Cut_P$a2[[i]][deb:fin]
+        b2 <- Cut_P$b2[[i]][deb:fin]
+        CCF <- max(ccf(a2,b2, plot=FALSE)$acf)
+        
+        
+        if (CCF>threshold){
+          count <- count+1
+          TOTCCF <- TOTCCF +CCF
+        }
+        else{
+          count <- count
+        }
+      }}
+    ratio <- count/(length(Cut_P$a2[[1]])/step)
+    Tot <- TOTCCF/count
+    res[i,1] <- ratio
+    res[i,2] <- Tot
+  }
+  
+  return(res)
+}
+
 #computes the CCF and extracts the lag between two different tools
-CCF_all_IP <- function(Selection_A,Selection_B, table){
+CCF_all_IP <- function(Selection_A,Selection_B){
+  table <- as.data.frame(permutations(length(Selection_A$y),2, repeats.allowed = TRUE ))
   nProfile <- nrow(table)
   allplots <- vector(mode="list", length=nProfile)
   res <-  data.frame(matrix(NA,nrow=nProfile,ncol=3))
@@ -341,9 +456,10 @@ CCF_all_IP <- function(Selection_A,Selection_B, table){
 }
 
 #To align profiles and compute other metrics using aligned profiles on different tools
-Aligned_scores_IP <- function(Selection_A,Selection_B, table){
-  res <- CCF_all_IP(Selection_A, Selection_B,table)[[2]]
-  allplots <- CCF_all_IP(Selection_A,Selection_B, table)[[1]]
+Aligned_scores_IP <- function(Selection_A,Selection_B){
+  table <- as.data.frame(permutations(length(Selection_A$y),2, repeats.allowed = TRUE ))
+  res <- CCF_all_IP(Selection_A, Selection_B)[[2]]
+  allplots <- CCF_all_IP(Selection_A,Selection_B)[[1]]
   res$ndtw <- NA
   res$rdist <- NA
   #res$Uscore <- NA
@@ -380,6 +496,7 @@ Aligned_scores_IP <- function(Selection_A,Selection_B, table){
 
 #To retrieve the within and between variability score separatly
 WB_var <- function(Resultat){
+Resultat <- Resultat[[2]]  
 NAMES <- Resultat[["nameComp"]]
 intra_Z1 <- data.frame(nameComp = character(), lag = double(), corr = double(), ndtw = double, rdist = double())
 intra_Z2 <- data.frame(nameComp = character(), lag = double(), corr = double(), ndtw = double, rdist = double())
@@ -439,23 +556,19 @@ return(DF)
 }
 
 # This function plots within and between variability distributions for a single tool
-Distrib <- function(Selection1, Selection2,Selection3,table){
-  Res1 <- Aligned_scores(Selection1,table)[[2]]
-  Res2 <- Aligned_scores(Selection2,table)[[2]]
-  Res3 <- Aligned_scores(Selection3,table)[[2]]
+
+Distrib_S <- function(Selection){
   
-  ROI1 <- WB_var(Res1) 
-  ROI2 <- WB_var(Res2)
-  ROI3 <- WB_var(Res3) 
+  Res1 <- Aligned_scores(Selection)
+  Zone <- WB_var(Res1)
+  names(Zone)[names(Zone) == 'VarROI'] <- 'VarZone'
   
-  DFA <-rbind(ROI1,ROI2,ROI3)
-  
-  q1 <- ggplot(DFA,aes(x=corr,color=Var))+geom_density()
-  q2 <- ggplot(DFA,aes(x=rdist,color=Var))+geom_density()
-  q3 <- ggplot(DFA,aes(x=ndtw,color=Var))+geom_density()
-  q4 <- ggplot(DFA,aes(x=corr,color=VarROI))+geom_density()
-  q5 <- ggplot(DFA,aes(x=rdist,color=VarROI))+geom_density()
-  q6 <- ggplot(DFA,aes(x=ndtw,color=VarROI))+geom_density()
+  q1 <- ggplot(Zone,aes(x=corr,color=Var))+geom_density()
+  q2 <- ggplot(Zone,aes(x=rdist,color=Var))+geom_density()
+  q3 <- ggplot(Zone,aes(x=CCF2,color=Var))+geom_density()
+  q4 <- ggplot(Zone,aes(x=corr,color=VarZone))+geom_density()
+  q5 <- ggplot(Zone,aes(x=rdist,color=VarZone))+geom_density()
+  q6 <- ggplot(Zone,aes(x=CCF2,color=VarZone))+geom_density()
   
   
   figure <- multi_panel_figure(columns = 3, rows = 2, panel_label_type = "none")
@@ -469,11 +582,83 @@ Distrib <- function(Selection1, Selection2,Selection3,table){
     fill_panel(q6, column = 3, row = 2)
   
   return(figure)
+  
 }
 
 
 
-Plot_HeatMap <- function(Res,table){ 
+Distrib_ROI <- function(Selection1, Selection2,Selection3){
+  Res1 <- Aligned_scores(Selection1)
+  Res2 <- Aligned_scores(Selection2)
+  Res3 <- Aligned_scores(Selection3)
+  
+  ROI1 <- WB_var(Res1) 
+  ROI2 <- WB_var(Res2)
+  ROI3 <- WB_var(Res3) 
+  
+  DFA <-rbind(ROI1,ROI2,ROI3)
+  
+  q1 <- ggplot(DFA,aes(x=corr,color=Var))+geom_density()
+  q2 <- ggplot(DFA,aes(x=rdist,color=Var))+geom_density()
+  q3 <- ggplot(DFA,aes(x=CCF2,color=Var))+geom_density()
+  q4 <- ggplot(DFA,aes(x=corr,color=VarROI))+geom_density()
+  q5 <- ggplot(DFA,aes(x=rdist,color=VarROI))+geom_density()
+  q6 <- ggplot(DFA,aes(x=CCF2,color=VarROI))+geom_density()
+
+  
+  
+  figure <- multi_panel_figure(columns = 3, rows = 2, panel_label_type = "none")
+  
+  figure %<>%
+    fill_panel(q1, column = 1, row = 1) %<>%
+    fill_panel(q2, column = 2, row = 1) %<>%
+    fill_panel(q3, column = 3, row = 1) %<>%
+    fill_panel(q4, column = 1, row = 2) %<>%
+    fill_panel(q5, column = 2, row = 2) %<>%
+    fill_panel(q6, column = 3, row = 2) %<>%
+
+  
+  return(figure)
+}
+
+Distrib_ROI2 <- function(Selection1, Selection2,Selection3){
+  Res1 <- Aligned_scores(Selection1)
+  Res2 <- Aligned_scores(Selection2)
+  Res3 <- Aligned_scores(Selection3)
+  
+  ROI1 <- WB_var(Res1) 
+  ROI2 <- WB_var(Res2)
+  ROI3 <- WB_var(Res3) 
+  
+  DFA <-rbind(ROI1,ROI2,ROI3)
+  
+  q1 <- ggplot(DFA,aes(x=lag,color=Var))+geom_density()
+  q2 <- ggplot(DFA,aes(x=ACF,color=Var))+geom_density()
+  q3 <- ggplot(DFA,aes(x=CCorr,color=Var))+geom_density()
+  q4 <- ggplot(DFA,aes(x=lag,color=VarROI))+geom_density()
+  q5 <- ggplot(DFA,aes(x=ACF,color=VarROI))+geom_density()
+  q6 <- ggplot(DFA,aes(x=CCorr,color=VarROI))+geom_density()
+  
+  
+  
+  figure <- multi_panel_figure(columns = 3, rows = 2, panel_label_type = "none")
+  
+  figure %<>%
+    fill_panel(q1, column = 1, row = 1) %<>%
+    fill_panel(q2, column = 2, row = 1) %<>%
+    fill_panel(q3, column = 3, row = 1) %<>%
+    fill_panel(q4, column = 1, row = 2) %<>%
+    fill_panel(q5, column = 2, row = 2) %<>%
+    fill_panel(q6, column = 3, row = 2) %<>%
+    
+    
+    return(figure)
+}
+
+
+Plot_HeatMap <- function(Selection){ 
+  Res <- Aligned_scores(Selection)
+  table <- as.data.frame(t(combn(length(Selection$y),2)))
   Res <- Res[[2]]$corr
   HM_df <- cbind(table,Res)
   
